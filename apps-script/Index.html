@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base target="_top">
+<!-- =====================================================================
+     SETTINGS: SAFE TO EDIT (colors, text, sounds)
+     Change the values only. Keep the quote marks and semicolons.
+     ===================================================================== -->
+<style>
+:root{
+  --bg:#0f1115;     /* page background (dark mode) */
+  --card:#1b1f27;   /* card and panel background (dark mode) */
+  --fg:#f2f4f8;     /* main text color (dark mode) */
+  --dim:#9aa3b2;    /* small grey text (dark mode) */
+  --no:#e5484d;     /* "Not done" color (left swipe) */
+  --yes:#30a46c;    /* "Done" color (right swipe) and Save button */
+  --up:#f5a524;     /* "Escalate" color (up swipe) and High badge */
+  --down:#3e8ef7;   /* "In process" color (down swipe) and active tab */
+}
+@media(prefers-color-scheme:light){:root{
+  --bg:#f3f4f7;     /* page background (light mode) */
+  --card:#fff;      /* card and panel background (light mode) */
+  --fg:#14171c;     /* main text color (light mode) */
+  --dim:#5b6472;    /* small grey text (light mode) */
+}}
+</style>
+<script>
+const EDIT = {
+  tabAdd: 'Add',                              // Tab name: add a task
+  tabSwipe: 'Swipe',                          // Tab name: swipe review
+  tabList: 'List',                            // Tab name: list of open tasks
+  addHeader: 'New task',                      // Header on the Add tab
+  addHint: 'Tap the mic on your keyboard to talk.', // Grey hint under the text box
+  saveButton: 'Save task',                    // Save button text
+  highLabel: 'High priority',                 // Text beside the High switch
+  emptyDeck: 'All reviewed. Good work.',      // Text when no cards are left
+  btnNo: '← Not done', btnDown: '↓ In process', btnUp: '↑ Escalate', btnYes: '→ Done', // Drawer buttons
+  stampNo: 'NOT DONE', stampYes: 'DONE', stampUp: 'ESCALATE', stampDown: 'IN PROCESS', // Card stamps
+  // Sounds for each swipe. Set a value to '' for no sound. E plays after the last card.
+  sounds: {
+    R: 'https://hoovers.101soundboards.com/sb/sounds_rendered/ro7ty7ddmvtdileo.mp3',
+    L: 'https://hoovers.101soundboards.com/sb/sounds_rendered/45qhssk16uhtnhhg.mp3',
+    U: 'https://hoovers.101soundboards.com/sb/sounds_rendered/jfiqdgoqrhmav8ku.mp3',
+    D: 'https://hoovers.101soundboards.com/sb/sounds_rendered/hxh3jrvldovjjubf.mp3',
+    E: 'https://hoovers.101soundboards.com/sb/sounds_rendered/r2lezogezyjgwbfj.mp3'
+  }
+};
+</script>
+<!-- =====================================================================
+     END OF SETTINGS. Everything below: leave alone.
+     ===================================================================== -->
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:112.5%/1.35 system-ui,sans-serif;overflow:hidden;overscroll-behavior:none}
+#app{height:100%;display:flex;flex-direction:column;padding:10px 16px calc(12px + env(safe-area-inset-bottom))}
+#tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--card);border-radius:14px;padding:4px}
+#tabs button{border:0;border-radius:10px;padding:10px 0;background:none;color:var(--dim);font:inherit;font-size:.8em;font-weight:700}
+#tabs button.on{background:var(--down);color:#fff}
+.page{flex:1;display:none;flex-direction:column;min-height:0;margin-top:10px}
+.page.on{display:flex}
+/* Add */
+#pAdd h2{margin:4px 0 8px;font-size:1.05em}
+#txt{width:100%;min-height:9em;resize:vertical;border:2px solid var(--card);border-radius:14px;padding:12px;background:var(--card);color:var(--fg);font:inherit}
+#txt:focus{outline:none;border-color:var(--down)}
+.hint{font-size:.65em;color:var(--dim);margin:6px 2px}
+#hiRow{display:flex;align-items:center;gap:10px;margin:8px 2px 12px;font-size:.8em}
+#hi{width:22px;height:22px;accent-color:var(--up)}
+#save{border:0;border-radius:14px;padding:14px 0;background:var(--yes);color:#fff;font:inherit;font-weight:700}
+#save:disabled{opacity:.5}
+#recent{margin-top:14px;overflow:auto;font-size:.75em}
+#recent div{padding:6px 2px;border-bottom:1px solid var(--card);color:var(--dim)}
+/* Swipe */
+#top{display:flex;justify-content:space-between;align-items:center;font-size:.7em;color:var(--dim)}
+#top button{background:none;border:0;color:var(--dim);font:inherit;padding:8px}
+#stage{flex:1;position:relative;margin:8px 0;touch-action:none}
+.card{position:absolute;inset:0;background:var(--card);border-radius:20px;padding:20px;overflow:auto;box-shadow:0 8px 30px #0006;touch-action:none;user-select:none;will-change:transform}
+.card h2{margin:6px 0 10px;font-size:1.15em}
+.card .meta{font-size:.6em;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+.card .note{font-size:.75em;color:var(--dim);white-space:pre-wrap}
+.card.under{transform:scale(.94) translateY(14px);opacity:.7;pointer-events:none;box-shadow:none}
+.stamp{position:absolute;top:18px;font-weight:800;font-size:1.1em;border:3px solid;border-radius:10px;padding:2px 10px;opacity:0;pointer-events:none}
+.sNo{left:18px;color:var(--no);transform:rotate(-12deg)}
+.sYes{right:18px;color:var(--yes);transform:rotate(12deg)}
+.sUp{left:50%;translate:-50% 0;color:var(--up)}
+.sDown{left:50%;bottom:18px;top:auto;translate:-50% 0;color:var(--down)}
+#handle{background:none;border:0;color:var(--dim);font:inherit;font-size:.7em;padding:10px}
+#drawer{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-radius:20px 20px 0 0;padding:14px 16px calc(16px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .25s;box-shadow:0 -8px 30px #0006;z-index:5}
+#drawer:not(.open){box-shadow:none}
+#drawer.open{transform:none}
+#dclose{display:block;margin:-6px auto 8px;background:none;border:0;color:var(--dim);font:inherit;font-size:.7em;padding:4px 20px}
+#back{width:100%;margin-top:8px;border:0;border-radius:14px;padding:12px 0;background:var(--bg);color:var(--fg);font:inherit;font-size:.8em;font-weight:700}
+#btns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+#btns button{border:0;border-radius:14px;padding:14px 0;font:inherit;font-size:.7em;font-weight:700;color:#fff}
+#empty{position:absolute;inset:0;display:grid;place-content:center;text-align:center;color:var(--dim)}
+/* List */
+#list{overflow:auto;flex:1}
+.row{background:var(--card);border-radius:14px;padding:10px 12px;margin-bottom:8px}
+.row .meta{font-size:.6em;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+.row .t{font-size:.85em;margin-top:2px}
+.badge{display:inline-block;background:var(--up);color:#111;border-radius:6px;padding:0 6px;font-weight:800;margin-right:4px}
+.badge.stale{background:var(--no);color:#fff}
+#listTop{display:flex;justify-content:space-between;font-size:.7em;color:var(--dim);margin:0 2px 8px}
+#listTop button{background:none;border:0;color:var(--dim);font:inherit;padding:0}
+/* Messages */
+#toast{position:fixed;left:16px;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));background:var(--fg);color:var(--bg);border-radius:12px;padding:10px 14px;font-size:.75em;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+#toast.on{opacity:1}
+#toast.err{background:var(--no);color:#fff}
+#loading{color:var(--dim);font-size:.75em;padding:10px 2px}
+</style>
+</head>
+<body>
+<div id="app">
+  <nav id="tabs">
+    <button data-tab="add" id="tAdd"></button>
+    <button data-tab="swipe" id="tSwipe"></button>
+    <button data-tab="list" id="tList"></button>
+  </nav>
+
+  <section class="page" id="pAdd">
+    <h2 id="addHeader"></h2>
+    <textarea id="txt" maxlength="1000" placeholder="What do you need to track?"></textarea>
+    <div class="hint" id="addHint"></div>
+    <label id="hiRow"><input type="checkbox" id="hi"><span id="hiLabel"></span></label>
+    <button id="save"></button>
+    <div id="recent"></div>
+  </section>
+
+  <section class="page" id="pSwipe">
+    <div id="top"><span id="count"></span><span><button id="snd"></button><button id="all">show all</button><button id="reload">reload</button></span></div>
+    <div id="stage"><div id="empty"></div></div>
+    <button id="handle">▲ buttons</button>
+  </section>
+
+  <section class="page" id="pList">
+    <div id="listTop"><span id="listCount"></span><button id="listReload">reload</button></div>
+    <div id="list"><div id="loading">Loading…</div></div>
+  </section>
+</div>
+
+<div id="drawer">
+  <button id="dclose">▼ close</button>
+  <div id="btns">
+    <button data-d="L" style="background:var(--no)"></button>
+    <button data-d="D" style="background:var(--down)"></button>
+    <button data-d="U" style="background:var(--up)"></button>
+    <button data-d="R" style="background:var(--yes)"></button>
+  </div>
+  <button id="back">↶ Go back</button>
+</div>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const store = {
+  get(k){ try { return localStorage[k]; } catch(e) { return undefined; } },
+  set(k,v){ try { localStorage[k] = v; } catch(e) {} }
+};
+
+// Calls a function in Code.gs and returns a Promise.
+function run(name, ...args) {
+  return new Promise((ok, fail) => {
+    google.script.run.withSuccessHandler(ok).withFailureHandler(e => fail(e && e.message ? e : new Error(String(e))))[name](...args);
+  });
+}
+
+let toastTimer;
+function toast(msg, isErr) {
+  const t = $('#toast');
+  t.textContent = msg; t.className = 'on' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.className = '', isErr ? 6000 : 2500);
+}
+
+/* ---------- Text from the settings block ---------- */
+$('#tAdd').textContent = EDIT.tabAdd; $('#tSwipe').textContent = EDIT.tabSwipe; $('#tList').textContent = EDIT.tabList;
+$('#addHeader').textContent = EDIT.addHeader; $('#addHint').textContent = EDIT.addHint;
+$('#save').textContent = EDIT.saveButton; $('#hiLabel').textContent = EDIT.highLabel;
+$('#empty').textContent = EDIT.emptyDeck;
+const BTN = {L: EDIT.btnNo, D: EDIT.btnDown, U: EDIT.btnUp, R: EDIT.btnYes};
+document.querySelectorAll('#btns button').forEach(b => b.textContent = BTN[b.dataset.d]);
+
+/* ---------- Data ---------- */
+let items = [], today = '', showAll = false;
+async function loadItems() {
+  const res = await run('getOpenItems');
+  items = res.items || []; today = res.today || '';
+  return items;
+}
+const ageDays = d => { const t = Date.parse(d), n = Date.parse(today); return isNaN(t) || isNaN(n) ? null : Math.round((n - t) / 864e5); };
+const days = n => n + (n === 1 ? ' day' : ' days');
+const isHigh = it => String(it.priority).toLowerCase() === 'high';
+const reviewedToday = it => today && String(it.review || '').endsWith(today);
+const sortItems = arr => arr.slice().sort((a, b) => (isHigh(b) - isHigh(a)) || String(a.firstSeen).localeCompare(String(b.firstSeen)));
+
+/* ---------- Tabs ---------- */
+let tab = 'add';
+function showTab(name) {
+  tab = name;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+  $('#pAdd').classList.toggle('on', name === 'add');
+  $('#pSwipe').classList.toggle('on', name === 'swipe');
+  $('#pList').classList.toggle('on', name === 'list');
+  if (name !== 'swipe') closeDrawer();
+  if (name === 'swipe') refreshDeck();
+  if (name === 'list') refreshList();
+}
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+/* ---------- Add ---------- */
+const recent = [];
+$('#save').onclick = async () => {
+  const text = $('#txt').value.trim();
+  if (!text) { toast('Type or say a task first.', true); return; }
+  $('#save').disabled = true;
+  try {
+    const it = await run('addItem', text, $('#hi').checked);
+    $('#txt').value = ''; $('#hi').checked = false; store.set('todo-draft', '');
+    recent.unshift(it);
+    $('#recent').innerHTML = recent.slice(0, 5).map(r => `<div>${esc(r.id)} · ${r.priority ? '<b>High</b> · ' : ''}${esc(r.text)}</div>`).join('');
+    toast('Saved as ' + it.id);
+  } catch (e) {
+    toast('Not saved: ' + e.message + ' Your text is still in the box.', true);
+  } finally { $('#save').disabled = false; }
+};
+// Keep an unsent draft if the page closes.
+$('#txt').value = store.get('todo-draft') || '';
+$('#txt').oninput = () => store.set('todo-draft', $('#txt').value);
+
+/* ---------- List ---------- */
+async function refreshList() {
+  $('#list').innerHTML = '<div id="loading">Loading…</div>';
+  try { await loadItems(); } catch (e) { $('#list').innerHTML = ''; toast('Could not load: ' + e.message, true); return; }
+  const arr = sortItems(items);
+  $('#listCount').textContent = arr.length + ' open';
+  $('#list').innerHTML = arr.length ? arr.map(it => {
+    const a = ageDays(it.firstSeen);
+    return `<div class="row"><div class="meta">${isHigh(it) ? '<span class="badge">High</span>' : ''}${it.stale ? '<span class="badge stale">Stale</span>' : ''}${esc(it.id)} · ${a == null ? esc(it.firstSeen) : days(a)}${it.review ? ' · ' + esc(it.review) : ''}</div><div class="t">${esc(it.text)}</div></div>`;
+  }).join('') : '<div id="loading">No open tasks.</div>';
+}
+$('#listReload').onclick = refreshList;
+
+/* ---------- Swipe deck ---------- */
+const stage = $('#stage');
+let deck = [], history = [];
+async function refreshDeck() {
+  stage.querySelectorAll('.card').forEach(c => c.remove());
+  $('#count').textContent = 'loading…'; $('#empty').style.display = 'none';
+  try { await loadItems(); } catch (e) { $('#count').textContent = ''; toast('Could not load: ' + e.message, true); return; }
+  deck = sortItems(items.filter(it => showAll || !reviewedToday(it)));
+  history = []; render();
+}
+function render() {
+  stage.querySelectorAll('.card').forEach(c => c.remove());
+  $('#count').textContent = deck.length + ' left';
+  $('#empty').style.display = deck.length ? 'none' : 'grid';
+  if (!deck[0]) return;
+  if (deck[1]) stage.append(mk(deck[1], true));
+  const c = mk(deck[0], false); stage.append(c); drag(c);
+}
+function mk(it, under) {
+  const c = document.createElement('div'); c.className = 'card' + (under ? ' under' : '');
+  const a = ageDays(it.firstSeen);
+  const notes = [it.outcome, it.review ? 'Last review: ' + it.review : '', it.dupe ? 'Possible duplicate of ' + it.dupe : ''].filter(Boolean).join('\n');
+  c.innerHTML = `<div class="meta">${isHigh(it) ? 'HIGH · ' : ''}${esc(it.id)} · ${a == null ? esc(it.firstSeen) : 'open ' + days(a)}${it.stale ? ' · stale' : ''}</div><h2>${esc(it.text)}</h2><div class="note">${esc(notes)}</div>` + (under ? '' :
+    `<div class="stamp sNo" data-k="L">${esc(EDIT.stampNo)}</div><div class="stamp sYes" data-k="R">${esc(EDIT.stampYes)}</div><div class="stamp sUp" data-k="U">${esc(EDIT.stampUp)}</div><div class="stamp sDown" data-k="D">${esc(EDIT.stampDown)}</div>`);
+  return c;
+}
+function dirOf(dx, dy) { return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'R' : 'L') : (dy > 0 ? 'D' : 'U'); }
+function stamps(c, dx, dy) {
+  const d = dirOf(dx, dy), a = Math.min(1, Math.hypot(dx, dy) / 110);
+  c.querySelectorAll('.stamp').forEach(s => s.style.opacity = s.dataset.k === d ? a : 0);
+}
+function drag(c) {
+  let x0, y0, dx = 0, dy = 0, on = false;
+  c.onpointerdown = e => { on = true; x0 = e.clientX; y0 = e.clientY; c.setPointerCapture(e.pointerId); c.style.transition = 'none'; };
+  c.onpointermove = e => { if (!on) return; dx = e.clientX - x0; dy = e.clientY - y0;
+    c.style.transform = `translate(${dx}px,${dy}px) rotate(${dx / 18}deg)`; stamps(c, dx, dy); };
+  c.onpointerup = c.onpointercancel = () => { if (!on) return; on = false;
+    if (Math.hypot(dx, dy) > 110) decide(dirOf(dx, dy));
+    else { c.style.transition = 'transform .2s'; c.style.transform = ''; stamps(c, 0, 0); }
+    dx = dy = 0; };
+}
+
+let mute = store.get('swipe-mute') === '1';
+const AUD = {};
+for (const [k, v] of Object.entries(EDIT.sounds)) if (v) { const a = new Audio(v); a.preload = 'auto'; AUD[k] = a; }
+const ping = d => { const a = AUD[d]; if (mute || !a) return; a.currentTime = 0; a.play().catch(() => {}); };
+const FLING = {L: [-1, 0], R: [1, 0], U: [0, -1], D: [0, 1]};
+
+function decide(d) {
+  const it = deck[0]; if (!it) return;
+  const c = stage.querySelector('.card:not(.under)'), [fx, fy] = FLING[d];
+  if (c) {
+    c.style.transition = 'transform .45s cubic-bezier(.2,.7,.3,1),opacity .45s';
+    c.style.transform = `translate(${fx * innerWidth * 1.2}px,${fy * innerHeight}px) rotate(${fx * 25}deg)`;
+    c.style.opacity = 0; c.style.pointerEvents = 'none';
+  }
+  ping(d); deck.shift();
+  // Write to the Sheet. If it fails, put the card back on top.
+  const entry = {it, d, done: run('swipe', it.id, d).then(r => r.prev).catch(e => {
+    toast('Not saved: ' + e.message, true);
+    const i = history.indexOf(entry); if (i >= 0) history.splice(i, 1);
+    deck.unshift(it); render(); return null;
+  })};
+  history.push(entry);
+  if (!deck.length && AUD[d] && !mute) AUD[d].onended = () => { AUD[d].onended = null; ping('E'); };
+  setTimeout(render, 420);
+}
+document.querySelectorAll('#btns button').forEach(b => b.onclick = () => decide(b.dataset.d));
+addEventListener('keydown', e => {
+  if (tab !== 'swipe') return;
+  const d = {ArrowLeft: 'L', ArrowRight: 'R', ArrowUp: 'U', ArrowDown: 'D'}[e.key]; if (d) decide(d);
+});
+$('#snd').textContent = mute ? 'sound off' : 'sound on';
+$('#snd').onclick = () => { mute = !mute; store.set('swipe-mute', mute ? '1' : '0'); $('#snd').textContent = mute ? 'sound off' : 'sound on'; };
+function closeDrawer() { $('#drawer').classList.remove('open'); $('#handle').textContent = '▲ buttons'; }
+$('#dclose').onclick = closeDrawer;
+$('#handle').onclick = () => { const o = $('#drawer').classList.toggle('open'); $('#handle').textContent = o ? '▼ close' : '▲ buttons'; };
+$('#back').onclick = async () => {
+  const entry = history.pop(); if (!entry) return;
+  const prev = await entry.done;
+  if (prev == null) return; // The swipe never saved; the card is already back.
+  try {
+    await run('undoSwipe', entry.it.id, prev);
+    Object.assign(entry.it, prev);
+    deck.unshift(entry.it); render();
+  } catch (e) { history.push(entry); toast('Undo failed: ' + e.message, true); }
+};
+$('#all').onclick = () => { showAll = !showAll; $('#all').textContent = showAll ? 'hide reviewed' : 'show all'; refreshDeck(); };
+$('#reload').onclick = refreshDeck;
+
+/* ---------- Start: ?page=add, ?page=swipe or ?page=list ---------- */
+function start(params) {
+  const p = (params && params.page) || 'add';
+  showTab(['add', 'swipe', 'list'].includes(p) ? p : 'add');
+}
+try { google.script.url.getLocation(loc => start(loc.parameter)); } catch (e) { start({}); }
+</script>
+</body>
+</html>

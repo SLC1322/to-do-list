@@ -1,0 +1,11 @@
+{
+  "name": "master-to-do",
+  "private": true,
+  "description": "Phone web app (Google Apps Script) for the Master Task List Sheet.",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.40.0"
+  }
+}
