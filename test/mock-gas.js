@@ -36,9 +36,49 @@ function formatDate(d, tz, fmt) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 }
 
+// Wall-clock time in a time zone -> real instant (like Utilities.parseDate).
+function parseDate(str, tz, fmt) {
+  if (fmt !== "yyyy-MM-dd'T'HH:mm") throw new Error('fake parseDate only knows yyyy-MM-ddTHH:mm');
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(str);
+  if (!m) return null;
+  const wall = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  const offsetAt = t => {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(t)).map(x => [x.type, x.value]));
+    return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute) - t;
+  };
+  let t = wall - offsetAt(wall);
+  t = wall - offsetAt(t);
+  return new Date(t);
+}
+function formatDateFull(d, tz, fmt) {
+  if (fmt === 'yyyy-MM-dd') return formatDate(d, tz, fmt);
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(d).map(x => [x.type, x.value]));
+  if (fmt === 'yyyy-MM-dd HH:mm') return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
+  if (fmt === "yyyy-MM-dd'T'HH:mm") return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+  throw new Error('fake formatDate does not know ' + fmt);
+}
+
+class FakeCalendar {
+  constructor() { this.events = []; this.n = 0; }
+  createEvent(title, start, end, opts = {}) {
+    const ev = { id: 'ev' + (++this.n) + '@google.com', title, start: new Date(start), end: new Date(end), description: opts.description || '', reminders: [{ popup: 30 }], deleted: false };
+    const api = {
+      getId: () => ev.id, getTitle: () => ev.title, setTitle: t => { ev.title = t; return api; },
+      setTime: (a, b) => { ev.start = new Date(a); ev.end = new Date(b); return api; },
+      removeAllReminders: () => { ev.reminders = []; return api; },
+      addPopupReminder: m => { ev.reminders.push({ popup: m }); return api; },
+      deleteEvent: () => { ev.deleted = true; }
+    };
+    ev.api = api; this.events.push(ev); return api;
+  }
+  getEventById(id) { const ev = this.events.find(e => e.id === id && !e.deleted); return ev ? ev.api : null; }
+  live() { return this.events.filter(e => !e.deleted); }
+}
+
 function makeEnv({ items, archive, buy = [BUY_HEAD], wish = [WISH_HEAD], mail = [], now } = {}) {
   const sheets = { Items: new FakeSheet('Items', items), Archive: new FakeSheet('Archive', archive), Buy: new FakeSheet('Buy', buy), Wishlist: new FakeSheet('Wishlist', wish) };
   const props = {};
+  const calendar = new FakeCalendar();
   const triggers = [];
   const labels = {};
   let lockHeld = false;
@@ -48,7 +88,8 @@ function makeEnv({ items, archive, buy = [BUY_HEAD], wish = [WISH_HEAD], mail = 
     Date: now ? class extends RealDate { constructor(...a) { if (a.length) super(...a); else super(now); } static now() { return new RealDate(now).getTime(); } } : RealDate,
     SpreadsheetApp: { openById: () => ({ getSheetByName: n => sheets[n] || null }) },
     LockService: { getScriptLock: () => ({ waitLock() { if (lockHeld) throw new Error('lock busy'); lockHeld = true; }, releaseLock() { lockHeld = false; } }) },
-    Utilities: { formatDate },
+    Utilities: { formatDate: formatDateFull, parseDate },
+    CalendarApp: { getDefaultCalendar: () => calendar, getCalendarById: () => null },
     HtmlService: { createHtmlOutputFromFile: f => ({ file: f, setTitle(t) { this.title = t; return this; }, addMetaTag(n, c) { this.meta = [n, c]; return this; } }) },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = v; } }) },
     ScriptApp: {
@@ -73,8 +114,8 @@ function makeEnv({ items, archive, buy = [BUY_HEAD], wish = [WISH_HEAD], mail = 
   vm.createContext(ctx);
   const dir = path.join(__dirname, '..', 'apps-script');
   vm.runInContext(fs.readFileSync(path.join(dir, 'Code.gs'), 'utf8'), ctx, { filename: 'Code.gs' });
-  for (const f of ['Shop.gs', 'Mail.gs']) vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx, { filename: f });
-  return { ctx, sheets, props, triggers, isLocked: () => lockHeld };
+  for (const f of ['Shop.gs', 'Calendar.gs', 'Mail.gs']) vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx, { filename: f });
+  return { ctx, sheets, props, triggers, calendar, isLocked: () => lockHeld };
 }
 
 // Copy of the real Items and Archive tabs as read on 2026-10-30 (after the date fix),

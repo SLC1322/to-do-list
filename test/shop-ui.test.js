@@ -37,7 +37,7 @@ test('Buy tab: add with store, group by store, auto-store, got, usual re-add, pu
     await waitToast(page, /Added deck screws · Lowe's/);
     await page.fill('#bItem', 'Duct tape'); await page.click('#bAdd');
     await waitToast(page, /Added Duct tape/);
-    const groups = await page.locator('.grp').allTextContents();
+    const groups = (await page.locator('#buyList .grp').allTextContents()).map(t => t.replace('📅 Plan trip', ''));
     assert.deepEqual(groups, ["Lowe's · 1", 'Food Lion · 1', 'No store · 1']);
     await page.screenshot({ path: path.join(__dirname, 'shots', 'buy.png') });
 

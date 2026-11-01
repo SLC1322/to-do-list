@@ -38,6 +38,16 @@ const EDIT = {
   buyEmpty: 'Nothing to buy. Lucky you.',     // Text when the buy list is empty
   wantNew: '+ Add to wishlist',               // Button that opens the wishlist form
   wantEmpty: 'The wishlist is empty.',        // Text when the wishlist is empty
+  btnSchedule: '📅 Schedule',                 // Swipe drawer button that opens the scheduler
+  planTrip: '📅 Plan trip',                   // Buy tab button beside each store name
+  // Quick-pick times in the scheduler. day: 0 = today, 1 = tomorrow, 'Sun', 'Mon' ... 'Sat' = the next one. time: 24-hour HH:MM.
+  quickPicks: [
+    { day: 0, time: '19:00' },
+    { day: 1, time: '19:00' },
+    { day: 'Sat', time: '09:00' },
+    { day: 'Sun', time: '16:30' }
+  ],
+  lengths: [15, 30, 60, 120, 180],            // Length choices in minutes
   addHeader: 'New task',                      // Header on the Add tab
   addHint: 'Tap the mic on your keyboard to talk.', // Grey hint under the text box
   saveButton: 'Save task',                    // Save button text
@@ -97,6 +107,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:112.5%/
 #drawer:not(.open){box-shadow:none}
 #drawer.open{transform:none}
 #dclose{display:block;margin:-6px auto 8px;background:none;border:0;color:var(--dim);font:inherit;font-size:.7em;padding:4px 20px}
+#drow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#sched{width:100%;margin-top:8px;border:0;border-radius:14px;padding:12px 0;background:var(--down);color:#fff;font:inherit;font-size:.8em;font-weight:700}
 #back{width:100%;margin-top:8px;border:0;border-radius:14px;padding:12px 0;background:var(--bg);color:var(--fg);font:inherit;font-size:.8em;font-weight:700}
 #btns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 #btns button{border:0;border-radius:14px;padding:14px 0;font:inherit;font-size:.7em;font-weight:700;color:#fff}
@@ -157,8 +169,28 @@ details.got summary{padding:6px 2px}
 .wc .acts button{border:0;border-radius:10px;padding:10px 0;font:inherit;font-size:.8em;font-weight:700;color:#fff}
 .wc.closed .t{color:var(--dim)}
 .pill{display:inline-block;border-radius:6px;padding:0 6px;font-weight:800;background:var(--up);color:#111;margin-right:4px}
+/* Scheduler */
+#schBack{position:fixed;inset:0;background:#0008;z-index:7}
+#schBack[hidden],#sch[hidden]{display:none}
+#sch{position:fixed;left:0;right:0;bottom:0;max-height:92%;overflow:auto;background:var(--card);border-radius:20px 20px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));z-index:8;box-shadow:0 -8px 30px #0006}
+#schTitle{font-weight:700;font-size:.95em;overflow-wrap:anywhere}
+#schNow{font-size:.7em;color:var(--dim);margin-top:2px}
+#sch .grp{margin-top:14px}
+#sch .two{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+#sch input{width:100%;min-width:0;border:2px solid var(--bg);border-radius:12px;padding:10px;background:var(--bg);color:var(--fg);font:inherit;font-size:.85em}
+.chip.on{background:var(--down);border-color:var(--down);color:#fff}
+#sch .acts{display:grid;grid-template-columns:2fr 1fr;gap:6px;margin-top:16px}
+#sch .acts button{border:0;border-radius:12px;padding:12px 0;font:inherit;font-weight:700;font-size:.85em}
+#schGo{background:var(--yes);color:#fff}
+#schGo:disabled{opacity:.45}
+#schCancel{background:var(--bg);color:var(--fg)}
+#schRemove{display:block;margin:10px auto 0;color:var(--no)}
+#schRemove[hidden]{display:none}
+.cal{background:none;border:0;font:inherit;font-size:1em;padding:4px 6px;float:right;margin:-4px -6px 0 6px}
+.when{color:var(--down);font-weight:700}
+.trip{float:right;background:none;border:0;color:var(--down);font:inherit;font-size:1em;font-weight:700;text-transform:none;letter-spacing:0;padding:0}
 /* Messages */
-#toast{position:fixed;left:16px;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));background:var(--fg);color:var(--bg);border-radius:12px;padding:10px 14px;font-size:.75em;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+#toast{position:fixed;left:16px;right:16px;top:calc(8px + env(safe-area-inset-top));background:var(--fg);color:var(--bg);border-radius:12px;padding:10px 14px;font-size:.75em;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
 #toast.on{opacity:1}
 #toast.err{background:var(--no);color:#fff}
 #loading{color:var(--dim);font-size:.75em;padding:10px 2px}
@@ -225,7 +257,19 @@ details.got summary{padding:6px 2px}
     <button data-d="U" style="background:var(--up)"></button>
     <button data-d="R" style="background:var(--yes)"></button>
   </div>
-  <button id="back">↶ Go back</button>
+  <div id="drow"><button id="sched"></button><button id="back">↶ Go back</button></div>
+</div>
+<div id="schBack" hidden></div>
+<div id="sch" hidden role="dialog" aria-label="Schedule">
+  <div id="schTitle"></div>
+  <div id="schNow"></div>
+  <div class="grp">Quick pick</div>
+  <div class="chips" id="schQuick"></div>
+  <div class="two"><input type="date" id="schDate" aria-label="Date"><input type="time" id="schTime" step="300" aria-label="Time"></div>
+  <div class="grp">Length</div>
+  <div class="chips" id="schLen"></div>
+  <div class="acts"><button id="schGo" disabled>Schedule</button><button id="schCancel">Cancel</button></div>
+  <button class="lnk" id="schRemove" hidden>Remove from calendar</button>
 </div>
 <div id="toast"></div>
 
@@ -259,6 +303,7 @@ $('#addHeader').textContent = EDIT.addHeader; $('#addHint').textContent = EDIT.a
 $('#save').textContent = EDIT.saveButton; $('#hiLabel').textContent = EDIT.highLabel;
 $('#empty').textContent = EDIT.emptyDeck;
 const BTN = {L: EDIT.btnNo, D: EDIT.btnDown, U: EDIT.btnUp, R: EDIT.btnYes};
+$('#sched').textContent = EDIT.btnSchedule;
 document.querySelectorAll('#btns button').forEach(b => b.textContent = BTN[b.dataset.d]);
 
 /* ---------- Data ---------- */
@@ -320,10 +365,14 @@ async function refreshList() {
   $('#listCount').textContent = arr.length + ' open';
   $('#list').innerHTML = arr.length ? arr.map(it => {
     const a = ageDays(it.firstSeen);
-    return `<div class="row"><div class="meta">${isHigh(it) ? '<span class="badge">High</span>' : ''}${it.stale ? '<span class="badge stale">Stale</span>' : ''}${esc(it.id)} · ${a == null ? esc(it.firstSeen) : days(a)}${it.review ? ' · ' + esc(it.review) : ''}</div><div class="t">${esc(it.text)}</div></div>`;
+    return `<div class="row"><button class="cal" data-cal="${esc(it.id)}" aria-label="Schedule">📅</button><div class="meta">${isHigh(it) ? '<span class="badge">High</span>' : ''}${it.stale ? '<span class="badge stale">Stale</span>' : ''}${esc(it.id)} · ${a == null ? esc(it.firstSeen) : days(a)}${it.review ? ' · ' + esc(it.review) : ''}</div><div class="t">${esc(it.text)}</div>${it.scheduled ? `<div class="meta when">📅 ${esc(fmtWhen(it.scheduled))}</div>` : ''}</div>`;
   }).join('') : '<div id="loading">No open tasks.</div>';
 }
 $('#listReload').onclick = refreshList;
+$('#list').onclick = e => {
+  const b = e.target.closest('[data-cal]'); if (!b) return;
+  const it = byId(items, b.dataset.cal); if (it) openScheduler({ kind: 'task', it });
+};
 
 /* ---------- Swipe deck ---------- */
 const stage = $('#stage');
@@ -347,7 +396,7 @@ function mk(it, under) {
   const c = document.createElement('div'); c.className = 'card' + (under ? ' under' : '');
   const a = ageDays(it.firstSeen);
   const notes = [it.outcome, it.review ? 'Last review: ' + it.review : '', it.dupe ? 'Possible duplicate of ' + it.dupe : ''].filter(Boolean).join('\n');
-  c.innerHTML = `<div class="meta">${isHigh(it) ? 'HIGH · ' : ''}${esc(it.id)} · ${a == null ? esc(it.firstSeen) : 'open ' + days(a)}${it.stale ? ' · stale' : ''}</div><h2>${esc(it.text)}</h2><div class="note">${esc(notes)}</div>` + (under ? '' :
+  c.innerHTML = `<div class="meta">${isHigh(it) ? 'HIGH · ' : ''}${esc(it.id)} · ${a == null ? esc(it.firstSeen) : 'open ' + days(a)}${it.stale ? ' · stale' : ''}</div>${it.scheduled ? `<div class="meta when">📅 ${esc(fmtWhen(it.scheduled))}</div>` : ''}<h2>${esc(it.text)}</h2><div class="note">${esc(notes)}</div>` + (under ? '' :
     `<div class="stamp sNo" data-k="L">${esc(EDIT.stampNo)}</div><div class="stamp sYes" data-k="R">${esc(EDIT.stampYes)}</div><div class="stamp sUp" data-k="U">${esc(EDIT.stampUp)}</div><div class="stamp sDown" data-k="D">${esc(EDIT.stampDown)}</div>`);
   return c;
 }
@@ -383,7 +432,7 @@ function decide(d) {
   }
   ping(d); deck.shift();
   // Write to the Sheet. If it fails, put the card back on top.
-  const entry = {it, d, done: run('swipe', it.id, d).then(r => r.prev).catch(e => {
+  const entry = {it, d, done: run('swipe', it.id, d).then(r => { if (r.warning) toast(r.warning, true); return r.prev; }).catch(e => {
     toast('Not saved: ' + e.message, true);
     const i = history.indexOf(entry); if (i >= 0) history.splice(i, 1);
     deck.unshift(it); render(); return null;
@@ -407,13 +456,15 @@ $('#back').onclick = async () => {
   const prev = await entry.done;
   if (prev == null) return; // The swipe never saved; the card is already back.
   try {
-    await run('undoSwipe', entry.it.id, prev);
+    const u = await run('undoSwipe', entry.it.id, prev);
+    if (u && u.warning) toast(u.warning, true);
     Object.assign(entry.it, prev);
     deck.unshift(entry.it); render();
   } catch (e) { history.push(entry); toast('Undo failed: ' + e.message, true); }
 };
 $('#all').onclick = () => { showAll = !showAll; $('#all').textContent = showAll ? 'hide reviewed' : 'show all'; refreshDeck(); };
 $('#reload').onclick = refreshDeck;
+$('#sched').onclick = () => { if (deck[0]) openScheduler({ kind: 'task', it: deck[0] }); else toast('No card to schedule.', true); };
 
 /* ---------- Shopping data ---------- */
 let shop = { stores: [], buy: [], wish: [] };
@@ -441,7 +492,7 @@ function renderBuy() {
   for (const st of stores) {
     const rows = need.filter(b => b.store === st).sort((a, b) => a.item.localeCompare(b.item));
     if (!rows.length) continue;
-    html += `<div class="grp">${esc(st || 'No store')} · ${rows.length}</div>` + rows.map(buyRow).join('');
+    html += `<div class="grp">${esc(st || 'No store')} · ${rows.length}<button class="trip" data-trip="${esc(st)}">${esc(EDIT.planTrip)}</button></div>` + rows.map(buyRow).join('');
   }
   if (!need.length) html += `<div class="empty">${esc(EDIT.buyEmpty)}</div>`;
   const usual = shop.buy.filter(b => b.usual === 'yes' && b.status !== 'Need').sort((a, b) => a.item.localeCompare(b.item));
@@ -462,6 +513,7 @@ async function buyAct(fn, label, ...args) {
 }
 $('#buyList').onclick = e => {
   const t = e.target.closest('button'); if (!t) return;
+  if (t.dataset.trip !== undefined) { openScheduler({ kind: 'trip', store: t.dataset.trip }); return; }
   if (t.dataset.got) { t.closest('.bi').classList.add('got'); buyAct('setBuyStatus', 'Got it.', t.dataset.got, 'Got'); }
   else if (t.dataset.back) buyAct('setBuyStatus', 'Back on the list.', t.dataset.back, 'Need');
   else if (t.dataset.again) buyAct('setBuyStatus', 'Added again.', t.dataset.again, 'Need');
@@ -537,6 +589,96 @@ $('#wSave').onclick = async () => {
 };
 $('#wClosed').onclick = () => { showClosed = !showClosed; $('#wClosed').textContent = showClosed ? 'hide closed' : 'show closed'; renderWant(); };
 $('#wReload').onclick = refreshWant;
+
+/* ---------- Scheduler (tasks and shopping trips) ---------- */
+const pad2 = n => String(n).padStart(2, '0');
+const ymd = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+// "2026-11-08 16:30" or "2026-11-08T16:30" -> "Sun Nov 8, 4:30 PM" (no time-zone math: it is already Eastern wall time)
+function fmtWhen(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(s)); if (!m) return String(s);
+  const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  const h = d.getHours() % 12 || 12;
+  return DAYS[d.getDay()] + ' ' + d.toLocaleString('en-US', { month: 'short' }) + ' ' + d.getDate() + ', ' + h + ':' + pad2(d.getMinutes()) + ' ' + (d.getHours() < 12 ? 'AM' : 'PM');
+}
+// Quick picks from the settings block. A pick that is already past today moves to next week (or is skipped for "today").
+function quickPicks(now) {
+  const out = [];
+  for (const q of EDIT.quickPicks) {
+    const [hh, mm] = String(q.time).split(':').map(Number);
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm);
+    if (typeof q.day === 'number') { d.setDate(d.getDate() + q.day); if (d <= now) continue; }
+    else {
+      const want = DAYS.indexOf(q.day); if (want < 0) continue;
+      let add = (want - d.getDay() + 7) % 7; d.setDate(d.getDate() + add);
+      if (d <= now) d.setDate(d.getDate() + 7);
+    }
+    const label = q.day === 0 ? 'Today' : q.day === 1 ? 'Tomorrow' : DAYS[d.getDay()] + ' ' + d.toLocaleString('en-US', { month: 'short' }) + ' ' + d.getDate();
+    const h = hh % 12 || 12;
+    out.push({ date: ymd(d), time: pad2(hh) + ':' + pad2(mm), label: label + ' · ' + h + (mm ? ':' + pad2(mm) : '') + ' ' + (hh < 12 ? 'AM' : 'PM') });
+  }
+  return out;
+}
+const lenLabel = m => m < 60 ? m + ' min' : (m % 60 ? (m / 60).toFixed(1) : m / 60) + ' hr';
+let sch = null, schLen = 0;
+function openScheduler(ctx) {
+  sch = ctx; schLen = 0;
+  const isTask = ctx.kind === 'task';
+  $('#schTitle').textContent = isTask ? ctx.it.text : '🛒 ' + (ctx.store ? ctx.store + ' run' : 'Shopping run');
+  $('#schNow').textContent = isTask
+    ? (ctx.it.scheduled ? 'On your calendar: ' + fmtWhen(ctx.it.scheduled) + '. Pick a new time to move it.' : ctx.it.id + ' · not scheduled yet')
+    : 'The event notes will list this store\'s items.';
+  $('#schRemove').hidden = !(isTask && ctx.it.scheduled);
+  $('#schQuick').innerHTML = quickPicks(new Date()).map(q => `<button class="chip" data-date="${q.date}" data-time="${q.time}">${esc(q.label)}</button>`).join('');
+  $('#schLen').innerHTML = EDIT.lengths.map(m => `<button class="chip" data-len="${m}">${lenLabel(m)}</button>`).join('');
+  $('#schDate').value = ''; $('#schTime').value = '';
+  $('#schBack').hidden = false; $('#sch').hidden = false;
+  schCheck();
+}
+function closeScheduler() { sch = null; $('#schBack').hidden = true; $('#sch').hidden = true; }
+function schCheck() {
+  const when = $('#schDate').value && $('#schTime').value ? $('#schDate').value + 'T' + $('#schTime').value : '';
+  document.querySelectorAll('#schQuick .chip').forEach(c => c.classList.toggle('on', c.dataset.date === $('#schDate').value && c.dataset.time === $('#schTime').value));
+  document.querySelectorAll('#schLen .chip').forEach(c => c.classList.toggle('on', +c.dataset.len === schLen));
+  $('#schGo').disabled = !(when && schLen);
+  return when;
+}
+$('#schQuick').onclick = e => { const c = e.target.closest('[data-date]'); if (!c) return; $('#schDate').value = c.dataset.date; $('#schTime').value = c.dataset.time; schCheck(); };
+$('#schLen').onclick = e => { const c = e.target.closest('[data-len]'); if (!c) return; schLen = +c.dataset.len; schCheck(); };
+$('#schDate').oninput = $('#schTime').oninput = schCheck;
+$('#schCancel').onclick = $('#schBack').onclick = closeScheduler;
+$('#schGo').onclick = async () => {
+  const when = schCheck(); if (!when || !schLen || !sch) return;
+  const ctx = sch;
+  $('#schGo').disabled = true;
+  try {
+    if (ctx.kind === 'task') {
+      const r = await run('scheduleTask', ctx.it.id, when, schLen);
+      ctx.it.scheduled = r.scheduled;
+      closeScheduler();
+      if (tab === 'list') await refreshList();
+      if (tab === 'swipe') render();
+      toast((r.moved ? 'Moved: ' : 'On your calendar: ') + fmtWhen(r.scheduled));
+    } else {
+      const r = await run('scheduleTrip', ctx.store, when, schLen);
+      closeScheduler();
+      toast(r.title.replace(/^\S+ /, '') + ' on your calendar: ' + fmtWhen(r.when) + ' (' + r.items + ' items)');
+    }
+  } catch (e) { toast('Not scheduled: ' + e.message, true); schCheck(); }
+};
+$('#schRemove').onclick = async () => {
+  if (!sch || sch.kind !== 'task') return;
+  const ctx = sch;
+  if (!confirm('Remove this from your calendar?')) return;
+  try {
+    await run('unscheduleTask', ctx.it.id);
+    ctx.it.scheduled = '';
+    closeScheduler();
+    if (tab === 'list') await refreshList();
+    if (tab === 'swipe') render();
+    toast('Removed from your calendar.');
+  } catch (e) { toast('Not removed: ' + e.message, true); }
+};
 
 /* ---------- Start: ?page=add, swipe, list, buy or want ---------- */
 function start(params) {

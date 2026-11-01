@@ -78,13 +78,15 @@ function swipe(id, dir) {
     var prev = { priority: r.priority, status: r.status, doneDate: r.doneDate, review: r.review };
     var date = today_();
 
+    var warning = '';
     if (dir === 'R') {
       sheet.getRange(r.row, c.status).setValue('Done');
       setText_(sheet, r.row, c.done, date);
+      if (r.scheduled) warning = markEventDone_(sheet, c, r.row, true); // ✓ on the calendar event
     }
     if (dir === 'U') sheet.getRange(r.row, c.pri).setValue('High');
     setText_(sheet, r.row, reviewCol, SWIPE_LABELS[dir] + ' ' + date);
-    return { id: id, prev: prev };
+    return { id: id, prev: prev, warning: warning };
   });
 }
 
@@ -101,7 +103,8 @@ function undoSwipe(id, prev) {
     sheet.getRange(r.row, c.status).setValue(String(prev.status || 'Open'));
     setText_(sheet, r.row, c.done, String(prev.doneDate || ''));
     setText_(sheet, r.row, reviewCol, String(prev.review || ''));
-    return { id: id };
+    var warning = (r.scheduled && String(prev.status).toLowerCase() !== 'done') ? markEventDone_(sheet, c, r.row, false) : '';
+    return { id: id, warning: warning };
   });
 }
 
@@ -126,7 +129,8 @@ function columns_(sheet) {
   return {
     head: head, id: at('ID'), item: at('Item'), pri: at('Priority'), status: at('Status'),
     first: at('First seen'), last: at('Last mentioned'), mentions: at('Mentions'), done: at('Done date'),
-    dupe: at('Possible dupe of'), stale: at('Stale'), outcome: at('Outcome'), review: at(REVIEW_HEADER)
+    dupe: at('Possible dupe of'), stale: at('Stale'), outcome: at('Outcome'), review: at(REVIEW_HEADER),
+    scheduled: at(SCHEDULED_HEADER), event: at(EVENT_HEADER)
   };
 }
 
@@ -153,7 +157,8 @@ function readRows_(sheet, c) {
       firstSeen: dateText_(cell(row, c.first)), lastMentioned: dateText_(cell(row, c.last)),
       mentions: str_(cell(row, c.mentions)), doneDate: dateText_(cell(row, c.done)),
       dupe: str_(cell(row, c.dupe)), stale: str_(cell(row, c.stale)),
-      outcome: str_(cell(row, c.outcome)), review: str_(cell(row, c.review))
+      outcome: str_(cell(row, c.outcome)), review: str_(cell(row, c.review)),
+      scheduled: str_(cell(row, c.scheduled))
     });
   }
   return out;

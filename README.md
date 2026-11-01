@@ -5,9 +5,9 @@ A phone web app for the "Master Task List" Google Sheet. It has five tabs:
 | Tab | What it does | What it writes to the Sheet (Items tab) |
 |---|---|---|
 | **Add** | Type or dictate a task, optionally mark it High, then save. | A new row: next T-number, Status "Open", today's date as text. |
-| **Swipe** | The Sunday review deck. It loads open tasks live from the Sheet. | → Done: Status "Done" + Done date. ↑ Escalate: Priority "High". ↓ In process and ← Not done: only column L, "Last review". Every swipe also writes column L (for example "In process 2026-11-01"). |
-| **List** | A read-only list of open tasks. High first, then oldest. | Nothing. |
-| **Buy** | Short-term buy list, grouped by store. Tap an item when you get it. ★ marks a "usual" item; ✕ removes an item. | **Buy** tab: B-001 and up. Got items stay for 7 days under "Got in the last 7 days" (tap to put back). Usual items become one-tap "add again" chips. |
+| **Swipe** | The Sunday review deck. It loads open tasks live from the Sheet. The drawer has a **📅 Schedule** button for the top card. | → Done: Status "Done" + Done date. ↑ Escalate: Priority "High". ↓ In process and ← Not done: only column L, "Last review". Every swipe also writes column L (for example "In process 2026-11-01"). |
+| **List** | Open tasks, High first, then oldest. Tap 📅 on a task to put it on your calendar. | Only when you schedule: column M "Scheduled" and column N "Event ID". |
+| **Buy** | Short-term buy list, grouped by store. Tap an item when you get it. ★ marks a "usual" item; ✕ removes an item. **📅 Plan trip** beside a store name puts a store run on your calendar. | **Buy** tab: B-001 and up. Got items stay for 7 days under "Got in the last 7 days" (tap to put back). Usual items become one-tap "add again" chips. |
 | **Want** | Long-term wishlist. Tap a card to show the reason, the link, and the buttons: **Buy list**, **Bought**, **Drop**. | **Wishlist** tab: W-001 and up. Prices are numbers. Closed items show under "show closed". |
 
 The nightly "Daily Notes" job keeps working as before. The app follows the job's rules:
@@ -24,6 +24,7 @@ The nightly "Daily Notes" job keeps working as before. The app follows the job's
 | `apps-script/Code.gs` | Server code. It reads and writes the Sheet. Settings block at the top. |
 | `apps-script/Index.html` | The page. Colors, text, and sounds are in the settings block at the top. |
 | `apps-script/Shop.gs` | Server code for the Buy and Wishlist tabs. The store list is in its settings block. |
+| `apps-script/Calendar.gs` | Server code for scheduling. The reminder time and the ✓ mark are in its settings block. |
 | `apps-script/Mail.gs` | Optional. Turns emails to `scampbell1322+track@gmail.com` into tasks. Add it only after the app works. |
 | `test/` | Tests that run the real code against a copy of the Sheet. |
 
@@ -41,13 +42,14 @@ The Apps Script editor does not work well on a phone. Do Part 1 on a computer.
 6. In the left panel, click **+** next to **Files**. Click **HTML**. Type `Index` (no ".html"). Press Enter.
 7. Delete all the text in the new file. Paste all the text of `apps-script/Index.html` from this repo.
 8. Click **+** next to **Files** again. Click **Script**. Type `Shop`. Press Enter. Delete its text and paste `apps-script/Shop.gs`.
-9. Press **Ctrl+S** to save.
-10. Click **Deploy → New deployment**.
-11. Click the gear icon next to **Select type**. Click **Web app**.
-12. Set **Description** to `v1`. Set **Execute as** to **Me**. Set **Who has access** to **Only myself**.
-13. Click **Deploy**. Click **Authorize access**. Choose your Google account.
-14. Google shows "Google hasn't verified this app." This is normal for a script you made. Click **Advanced**, then **Go to Master To-Do (unsafe)**, then **Allow**.
-15. Copy the **Web app URL**. It ends in `/exec`. Email it to yourself.
+9. Do the same for a script named `Calendar`. Paste `apps-script/Calendar.gs`.
+10. Press **Ctrl+S** to save.
+11. Click **Deploy → New deployment**.
+12. Click the gear icon next to **Select type**. Click **Web app**.
+13. Set **Description** to `v1`. Set **Execute as** to **Me**. Set **Who has access** to **Only myself**.
+14. Click **Deploy**. Click **Authorize access**. Choose your Google account.
+15. Google shows "Google hasn't verified this app." This is normal for a script you made. Click **Advanced**, then **Go to Master To-Do (unsafe)**. Google lists two permissions: your spreadsheets and your calendars. Click **Allow**.
+16. Copy the **Web app URL**. It ends in `/exec`. Email it to yourself.
 
 ### Part 2: Add it to the phone home screen
 
@@ -70,10 +72,21 @@ Do each step and confirm the result in the Sheet.
 5. **Buy** tab: add `test item` with store Walmart. Expect a row B-001 in the Buy tab. Tap it. Expect Status "Got".
 6. **Want** tab: add `test want` with price 10. Expect a row W-001 in the Wishlist tab. Tap the card, tap **Drop**.
 7. Delete the two test rows by hand.
+8. **List** tab: tap 📅 on any task. Tap a quick pick and a length. Tap **Schedule**. Expect the event in Google Calendar with a 10-minute reminder.
+9. Tap 📅 on the same task again. Tap **Remove from calendar**. Expect the event to disappear.
 
 ### Updating the code later
 
 Paste the new code, save, then click **Deploy → Manage deployments → pencil icon → Version: New version → Deploy**. This keeps the same URL, so the home-screen icons keep working. Do **not** use "New deployment" again; that makes a new URL.
+
+## Scheduling
+
+- **Tasks:** tap 📅 (List tab) or **📅 Schedule** (Swipe drawer). Pick a quick time or set the date and time, then pick a length. The length is not preset: you choose it each time.
+- **Moving:** schedule the same task again. The app moves the existing event; it does not make a second one.
+- **Done:** when you swipe a scheduled task Done, its event title gets a ✓ in front. **Go back** removes the ✓. A calendar problem never blocks the swipe; you get a message instead.
+- **Shopping trips:** **📅 Plan trip** beside a store name on the Buy tab. The event is "🛒 Food Lion run" (for example). Its notes list that store's items plus items with no store, **as of the moment you schedule it**. Items added later are not added to the event; open the app at the store.
+- **Calendar:** your main Google Calendar. A popup reminder fires 10 minutes before, and your watch buzzes if it shows phone notifications.
+- **Limits:** a task finished by voice (`~~track: ...~~`) gets no ✓; only the app adds the ✓. The quick picks use your phone's clock.
 
 ## Voice through Claude
 
@@ -112,10 +125,11 @@ Install:
 
 ## Tests
 
-`npm test` runs 38 tests:
+`npm test` runs 54 tests:
 
 - **Tasks, server (15):** the real `Code.gs` and `Mail.gs` run against a copy of the real Items and Archive rows (as of 2026-10-30). They check IDs, text-format dates, the High word rule, column J never written, layout protection, every swipe direction, undo, lookup by ID after rows move, and the email sender filter.
 - **Shopping, server (13):** the real `Shop.gs` on fake Buy and Wishlist tabs. They check IDs, store detection in text ("eggs at food lion"), re-use of an existing row, usual items, every status change, price parsing, refusing unsafe links, duplicate wishlist items, layout protection, rows written by the nightly job, and email routing by address and label.
-- **Page (10):** the real `Index.html` in Chromium at phone size (390 × 844), connected to the same server code. They check all five tabs, drag and button swipes, Go back, the Buy and Want flows from start to end, failure handling, draft saving, HTML in item names shown as plain text, no sideways scroll, and dark and light mode.
+- **Calendar, server (11):** the real `Calendar.gs` on a fake Google Calendar. They check the event time across the 2026-11-01 clock change and in summer time, the 10-minute reminder, columns L, M and N, moving instead of duplicating, a deleted event, removing, the ✓ on Done and its removal on Go back, a calendar error never blocking a swipe, bad dates and lengths, and shopping trip notes.
+- **Page (15):** the real `Index.html` in Chromium at phone size (390 × 844), connected to the same server code. They check all five tabs, drag and button swipes, Go back, the Buy and Want flows from start to end, the scheduler from the List tab, the Swipe drawer and the Buy tab, quick picks on a fixed phone clock, failure handling, draft saving, HTML in item names shown as plain text, no sideways scroll, and dark and light mode.
 
 Not tested: the live Google deployment, your phone's Chrome, and the watch.

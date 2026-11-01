@@ -7,11 +7,12 @@ const { makeEnv, realItems, realArchive } = require('./mock-gas');
 const FILE = 'file://' + path.join(__dirname, '..', 'apps-script', 'Index.html');
 const NOW = '2026-10-30T16:00:00Z';
 
-async function open({ page: startPage = '', failOn = null, colorScheme = 'dark', now = NOW, seed = {} } = {}) {
+async function open({ page: startPage = '', failOn = null, colorScheme = 'dark', now = NOW, seed = {}, clock = null } = {}) {
   const env = makeEnv({ items: realItems(), archive: realArchive(), now, ...seed });
   const browser = await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, colorScheme });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, colorScheme, timezoneId: 'America/New_York' });
   const page = await ctx.newPage();
+  if (clock) await page.clock.setFixedTime(new Date(clock)); // the phone's clock, for quick picks
   const errors = [];
   page.on('pageerror', e => errors.push(String(e)));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|ERR_|net::/.test(m.text())) errors.push(m.text()); });
