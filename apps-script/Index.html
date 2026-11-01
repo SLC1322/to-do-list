@@ -30,6 +30,14 @@ const EDIT = {
   tabAdd: 'Add',                              // Tab name: add a task
   tabSwipe: 'Swipe',                          // Tab name: swipe review
   tabList: 'List',                            // Tab name: list of open tasks
+  tabBuy: 'Buy',                              // Tab name: short-term buy list
+  tabWant: 'Want',                            // Tab name: long-term wishlist
+  buyPlaceholder: 'Item to buy',              // Grey text in the Buy box
+  anyStore: 'Any store',                      // First choice in the store picker
+  usualLabel: 'Usual (keep for one-tap re-add)', // Text beside the Usual switch
+  buyEmpty: 'Nothing to buy. Lucky you.',     // Text when the buy list is empty
+  wantNew: '+ Add to wishlist',               // Button that opens the wishlist form
+  wantEmpty: 'The wishlist is empty.',        // Text when the wishlist is empty
   addHeader: 'New task',                      // Header on the Add tab
   addHint: 'Tap the mic on your keyboard to talk.', // Grey hint under the text box
   saveButton: 'Save task',                    // Save button text
@@ -54,8 +62,8 @@ const EDIT = {
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:112.5%/1.35 system-ui,sans-serif;overflow:hidden;overscroll-behavior:none}
 #app{height:100%;display:flex;flex-direction:column;padding:10px 16px calc(12px + env(safe-area-inset-bottom))}
-#tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--card);border-radius:14px;padding:4px}
-#tabs button{border:0;border-radius:10px;padding:10px 0;background:none;color:var(--dim);font:inherit;font-size:.8em;font-weight:700}
+#tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:var(--card);border-radius:14px;padding:4px}
+#tabs button{border:0;border-radius:10px;padding:10px 0;background:none;color:var(--dim);font:inherit;font-size:.75em;font-weight:700;min-width:0}
 #tabs button.on{background:var(--down);color:#fff}
 .page{flex:1;display:none;flex-direction:column;min-height:0;margin-top:10px}
 .page.on{display:flex}
@@ -102,6 +110,53 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:112.5%/
 .badge.stale{background:var(--no);color:#fff}
 #listTop{display:flex;justify-content:space-between;font-size:.7em;color:var(--dim);margin:0 2px 8px}
 #listTop button{background:none;border:0;color:var(--dim);font:inherit;padding:0}
+/* Buy */
+.scroll{overflow:auto;flex:1;min-height:0;padding-bottom:70px}
+.qa{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.qa input,.qa select,.wf input,.wf textarea{width:100%;min-width:0;border:2px solid var(--card);border-radius:12px;padding:10px;background:var(--card);color:var(--fg);font:inherit;font-size:.85em}
+.qa input:focus,.wf input:focus,.wf textarea:focus{outline:none;border-color:var(--down)}
+.qrow{display:grid;grid-template-columns:5em 1fr auto;gap:6px}
+.go{border:0;border-radius:12px;padding:0 16px;background:var(--yes);color:#fff;font:inherit;font-weight:700;font-size:.85em}
+.go:disabled{opacity:.5}
+.chk{display:flex;align-items:center;gap:8px;font-size:.7em;color:var(--dim)}
+.chk input{width:18px;height:18px;accent-color:var(--up)}
+.grp{font-size:.65em;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin:12px 2px 6px}
+.bi{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:14px;padding:4px 4px 4px 12px;margin-bottom:6px}
+.bi .tick{flex:1;display:flex;align-items:center;gap:12px;background:none;border:0;color:var(--fg);font:inherit;text-align:left;padding:10px 0;min-width:0}
+.bi .box{flex:none;width:24px;height:24px;border:2px solid var(--dim);border-radius:50%}
+.bi .nm{font-size:.9em;overflow-wrap:anywhere}
+.bi .q{color:var(--dim);font-size:.75em}
+.bi.got .box{background:var(--yes);border-color:var(--yes)}
+.bi.got .nm{text-decoration:line-through;color:var(--dim)}
+.ib{flex:none;background:none;border:0;color:var(--dim);font:inherit;font-size:.9em;width:40px;height:40px;border-radius:10px}
+.ib.on{color:var(--up)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--dim);border-radius:999px;background:none;color:var(--fg);font:inherit;font-size:.75em;padding:6px 12px}
+details.got{margin-top:12px;font-size:.8em;color:var(--dim)}
+details.got summary{padding:6px 2px}
+.empty{color:var(--dim);font-size:.8em;padding:16px 2px;text-align:center}
+/* Want */
+.wtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.wtop .go{padding:10px 14px}
+.lnk{background:none;border:0;color:var(--dim);font:inherit;font-size:.7em;padding:6px}
+.wf{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.wf[hidden]{display:none}
+.wf .two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.wf textarea{min-height:4em;resize:vertical}
+.wf .acts{display:flex;gap:6px}
+.wf .acts .go{flex:1;padding:12px 0}
+.wc{background:var(--card);border-radius:14px;margin-bottom:8px}
+.wc .wh{display:block;width:100%;background:none;border:0;color:var(--fg);font:inherit;text-align:left;padding:10px 12px}
+.wc .t{font-size:.9em}
+.wc .meta{font-size:.65em;color:var(--dim);margin-top:2px}
+.wc .wd{display:none;padding:0 12px 12px;font-size:.8em}
+.wc.open .wd{display:block}
+.wc .wd p{margin:0 0 8px;color:var(--dim);white-space:pre-wrap}
+.wc .wd a{color:var(--down);overflow-wrap:anywhere}
+.wc .acts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.wc .acts button{border:0;border-radius:10px;padding:10px 0;font:inherit;font-size:.8em;font-weight:700;color:#fff}
+.wc.closed .t{color:var(--dim)}
+.pill{display:inline-block;border-radius:6px;padding:0 6px;font-weight:800;background:var(--up);color:#111;margin-right:4px}
 /* Messages */
 #toast{position:fixed;left:16px;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));background:var(--fg);color:var(--bg);border-radius:12px;padding:10px 14px;font-size:.75em;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
 #toast.on{opacity:1}
@@ -115,6 +170,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:112.5%/
     <button data-tab="add" id="tAdd"></button>
     <button data-tab="swipe" id="tSwipe"></button>
     <button data-tab="list" id="tList"></button>
+    <button data-tab="buy" id="tBuy"></button>
+    <button data-tab="want" id="tWant"></button>
   </nav>
 
   <section class="page" id="pAdd">
@@ -135,6 +192,28 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:112.5%/
   <section class="page" id="pList">
     <div id="listTop"><span id="listCount"></span><button id="listReload">reload</button></div>
     <div id="list"><div id="loading">Loading…</div></div>
+  </section>
+
+  <section class="page" id="pBuy">
+    <div class="qa">
+      <input id="bItem" maxlength="300" enterkeyhint="done">
+      <div class="qrow"><input id="bQty" maxlength="50" placeholder="Qty"><select id="bStore"></select><button class="go" id="bAdd">Add</button></div>
+      <label class="chk"><input type="checkbox" id="bUsual"><span id="bUsualLabel"></span></label>
+    </div>
+    <div id="buyList" class="scroll"><div id="loading">Loading…</div></div>
+  </section>
+
+  <section class="page" id="pWant">
+    <div class="wtop"><button class="go" id="wNew"></button><span><button class="lnk" id="wClosed">show closed</button><button class="lnk" id="wReload">reload</button></span></div>
+    <div class="wf" id="wForm" hidden>
+      <input id="wItem" maxlength="300" placeholder="What do you want?">
+      <div class="two"><input id="wEst" inputmode="decimal" placeholder="Est. price $"><input id="wTarget" inputmode="decimal" placeholder="Target price $"></div>
+      <input id="wWatch" maxlength="100" placeholder="Watch for (e.g. Black Friday)">
+      <textarea id="wWhy" maxlength="500" placeholder="Why do you want it?"></textarea>
+      <input id="wLink" maxlength="500" inputmode="url" placeholder="Link (optional)">
+      <div class="acts"><button class="go" id="wSave">Save</button><button class="go" id="wCancel" style="background:var(--dim)">Cancel</button></div>
+    </div>
+    <div id="wantList" class="scroll"><div id="loading">Loading…</div></div>
   </section>
 </div>
 
@@ -174,6 +253,8 @@ function toast(msg, isErr) {
 
 /* ---------- Text from the settings block ---------- */
 $('#tAdd').textContent = EDIT.tabAdd; $('#tSwipe').textContent = EDIT.tabSwipe; $('#tList').textContent = EDIT.tabList;
+$('#tBuy').textContent = EDIT.tabBuy; $('#tWant').textContent = EDIT.tabWant;
+$('#bItem').placeholder = EDIT.buyPlaceholder; $('#bUsualLabel').textContent = EDIT.usualLabel; $('#wNew').textContent = EDIT.wantNew;
 $('#addHeader').textContent = EDIT.addHeader; $('#addHint').textContent = EDIT.addHint;
 $('#save').textContent = EDIT.saveButton; $('#hiLabel').textContent = EDIT.highLabel;
 $('#empty').textContent = EDIT.emptyDeck;
@@ -201,9 +282,13 @@ function showTab(name) {
   $('#pAdd').classList.toggle('on', name === 'add');
   $('#pSwipe').classList.toggle('on', name === 'swipe');
   $('#pList').classList.toggle('on', name === 'list');
+  $('#pBuy').classList.toggle('on', name === 'buy');
+  $('#pWant').classList.toggle('on', name === 'want');
   if (name !== 'swipe') closeDrawer();
   if (name === 'swipe') refreshDeck();
   if (name === 'list') refreshList();
+  if (name === 'buy') refreshBuy();
+  if (name === 'want') refreshWant();
 }
 document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 
@@ -330,10 +415,133 @@ $('#back').onclick = async () => {
 $('#all').onclick = () => { showAll = !showAll; $('#all').textContent = showAll ? 'hide reviewed' : 'show all'; refreshDeck(); };
 $('#reload').onclick = refreshDeck;
 
-/* ---------- Start: ?page=add, ?page=swipe or ?page=list ---------- */
+/* ---------- Shopping data ---------- */
+let shop = { stores: [], buy: [], wish: [] };
+async function loadShop() {
+  const res = await run('getShopping');
+  shop = res; today = res.today || today;
+  const sel = $('#bStore'), cur = sel.value;
+  sel.innerHTML = `<option value="">${esc(EDIT.anyStore)}</option>` + (res.stores || []).map(st => `<option>${esc(st)}</option>`).join('');
+  sel.value = cur;
+  return res;
+}
+const byId = (arr, id) => arr.find(x => x.id === id);
+const money = v => v === '' || v == null ? '' : '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+/* ---------- Buy ---------- */
+async function refreshBuy() {
+  try { await loadShop(); } catch (e) { $('#buyList').innerHTML = ''; toast('Could not load: ' + e.message, true); return; }
+  renderBuy();
+}
+function renderBuy() {
+  const need = shop.buy.filter(b => b.status === 'Need');
+  const stores = [...(shop.stores || []), ''];
+  need.forEach(b => { if (!stores.includes(b.store)) stores.splice(stores.length - 1, 0, b.store); });
+  let html = '';
+  for (const st of stores) {
+    const rows = need.filter(b => b.store === st).sort((a, b) => a.item.localeCompare(b.item));
+    if (!rows.length) continue;
+    html += `<div class="grp">${esc(st || 'No store')} · ${rows.length}</div>` + rows.map(buyRow).join('');
+  }
+  if (!need.length) html += `<div class="empty">${esc(EDIT.buyEmpty)}</div>`;
+  const usual = shop.buy.filter(b => b.usual === 'yes' && b.status !== 'Need').sort((a, b) => a.item.localeCompare(b.item));
+  if (usual.length) html += `<div class="grp">Usuals · tap to add again</div><div class="chips">` +
+    usual.map(b => `<button class="chip" data-again="${esc(b.id)}">+ ${esc(b.item)}</button>`).join('') + `</div>`;
+  const got = shop.buy.filter(b => b.status === 'Got' && ageDays(b.gotDate) !== null && ageDays(b.gotDate) <= 7);
+  if (got.length) html += `<details class="got"><summary>Got in the last 7 days · ${got.length} (tap to put back)</summary>` +
+    got.map(b => `<div class="bi got"><button class="tick" data-back="${esc(b.id)}"><span class="box"></span><span class="nm">${esc(b.item)}</span></button></div>`).join('') + `</details>`;
+  $('#buyList').innerHTML = html;
+}
+function buyRow(b) {
+  return `<div class="bi" data-id="${esc(b.id)}"><button class="tick" data-got="${esc(b.id)}"><span class="box"></span><span class="nm">${esc(b.item)}${b.qty ? ` <span class="q">· ${esc(b.qty)}</span>` : ''}</span></button>` +
+    `<button class="ib${b.usual === 'yes' ? ' on' : ''}" data-usual="${esc(b.id)}" title="Usual">★</button><button class="ib" data-rm="${esc(b.id)}" title="Remove">✕</button></div>`;
+}
+async function buyAct(fn, label, ...args) {
+  try { const r = await run(fn, ...args); await refreshBuy(); if (label) toast(label); return r; } // list first, then the message
+  catch (e) { toast('Not saved: ' + e.message, true); await refreshBuy(); }
+}
+$('#buyList').onclick = e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.dataset.got) { t.closest('.bi').classList.add('got'); buyAct('setBuyStatus', 'Got it.', t.dataset.got, 'Got'); }
+  else if (t.dataset.back) buyAct('setBuyStatus', 'Back on the list.', t.dataset.back, 'Need');
+  else if (t.dataset.again) buyAct('setBuyStatus', 'Added again.', t.dataset.again, 'Need');
+  else if (t.dataset.rm) { const b = byId(shop.buy, t.dataset.rm); if (confirm('Remove "' + (b ? b.item : '') + '" from the list?')) buyAct('setBuyStatus', 'Removed.', t.dataset.rm, 'Removed'); }
+  else if (t.dataset.usual) { const b = byId(shop.buy, t.dataset.usual); buyAct('setUsual', '', t.dataset.usual, !(b && b.usual === 'yes')); }
+};
+async function addBuyNow() {
+  const item = $('#bItem').value.trim();
+  if (!item) { toast('Type or say an item first.', true); return; }
+  $('#bAdd').disabled = true;
+  try {
+    const r = await run('addBuy', item, $('#bQty').value.trim(), $('#bStore').value, $('#bUsual').checked);
+    $('#bItem').value = ''; $('#bQty').value = ''; $('#bUsual').checked = false;
+    await refreshBuy();
+    toast(r.reused ? r.item + ' was already listed. Set to Need.' : 'Added ' + r.item + (r.store ? ' · ' + r.store : ''));
+  } catch (e) { toast('Not saved: ' + e.message, true); }
+  finally { $('#bAdd').disabled = false; $('#bItem').focus(); }
+}
+$('#bAdd').onclick = addBuyNow;
+$('#bItem').onkeydown = e => { if (e.key === 'Enter') addBuyNow(); };
+
+/* ---------- Want ---------- */
+let showClosed = false;
+async function refreshWant() {
+  try { await loadShop(); } catch (e) { $('#wantList').innerHTML = ''; toast('Could not load: ' + e.message, true); return; }
+  renderWant();
+}
+function renderWant() {
+  const list = shop.wish.filter(w => showClosed || w.status === 'Want')
+    .sort((a, b) => ((a.status !== 'Want') - (b.status !== 'Want')) || ((!a.watch) - (!b.watch)) || String(a.added).localeCompare(String(b.added)));
+  $('#wantList').innerHTML = list.length ? list.map(wantCard).join('') : `<div class="empty">${esc(EDIT.wantEmpty)}</div>`;
+}
+function wantCard(w) {
+  const open = w.status === 'Want', a = ageDays(w.added);
+  const meta = [w.est !== '' ? money(w.est) + ' est.' : '', w.target !== '' ? 'target ' + money(w.target) : '', a == null ? '' : 'added ' + (a === 0 ? 'today' : days(a) + ' ago'), open ? '' : w.status + (w.closedDate ? ' ' + w.closedDate : '')].filter(Boolean).join(' · ');
+  const link = /^https?:\/\//i.test(w.link) ? `<p><a href="${esc(w.link)}" target="_blank" rel="noopener">Open link ↗</a></p>` : '';
+  const acts = open
+    ? `<button data-move="${esc(w.id)}" style="background:var(--down)">Buy list</button><button data-bought="${esc(w.id)}" style="background:var(--yes)">Bought</button><button data-drop="${esc(w.id)}" style="background:var(--no)">Drop</button>`
+    : `<button data-reopen="${esc(w.id)}" style="background:var(--down)">Reopen</button>`;
+  return `<div class="wc${open ? '' : ' closed'}"><button class="wh" data-toggle="1"><div class="t">${w.watch ? `<span class="pill">${esc(w.watch)}</span>` : ''}${esc(w.item)}</div><div class="meta">${esc(meta)}</div></button>` +
+    `<div class="wd">${w.why ? `<p>${esc(w.why)}</p>` : ''}${link}<div class="acts">${acts}</div></div></div>`;
+}
+async function wantAct(fn, label, ...args) {
+  let err = null;
+  try { await run(fn, ...args); } catch (e) { err = e; }
+  await refreshWant();
+  toast(err ? 'Not saved: ' + err.message : label, !!err);
+}
+$('#wantList').onclick = e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.dataset.toggle) { t.closest('.wc').classList.toggle('open'); return; }
+  if (t.dataset.move) wantAct('wantToBuy', 'Moved to the Buy list.', t.dataset.move);
+  else if (t.dataset.bought) wantAct('setWantStatus', 'Marked bought.', t.dataset.bought, 'Bought');
+  else if (t.dataset.drop) { if (confirm('Drop this from the wishlist?')) wantAct('setWantStatus', 'Dropped.', t.dataset.drop, 'Dropped'); }
+  else if (t.dataset.reopen) wantAct('setWantStatus', 'Back on the wishlist.', t.dataset.reopen, 'Want');
+};
+const wFields = ['wItem', 'wEst', 'wTarget', 'wWatch', 'wWhy', 'wLink'];
+function wantForm(show) { $('#wForm').hidden = !show; $('#wNew').hidden = show; if (show) $('#wItem').focus(); }
+$('#wNew').onclick = () => wantForm(true);
+$('#wCancel').onclick = () => wantForm(false);
+$('#wSave').onclick = async () => {
+  const w = { item: $('#wItem').value, est: $('#wEst').value, target: $('#wTarget').value, watch: $('#wWatch').value, why: $('#wWhy').value, link: $('#wLink').value };
+  if (!w.item.trim()) { toast('Type what you want first.', true); return; }
+  $('#wSave').disabled = true;
+  try {
+    const r = await run('addWant', w);
+    if (!r.duplicate) { wFields.forEach(f => $('#' + f).value = ''); wantForm(false); }
+    await refreshWant();
+    if (r.duplicate) toast(r.item + ' is already on the wishlist (' + r.id + ').', true);
+    else toast('Added ' + r.item + ' (' + r.id + ')');
+  } catch (e) { toast('Not saved: ' + e.message, true); }
+  finally { $('#wSave').disabled = false; }
+};
+$('#wClosed').onclick = () => { showClosed = !showClosed; $('#wClosed').textContent = showClosed ? 'hide closed' : 'show closed'; renderWant(); };
+$('#wReload').onclick = refreshWant;
+
+/* ---------- Start: ?page=add, swipe, list, buy or want ---------- */
 function start(params) {
   const p = (params && params.page) || 'add';
-  showTab(['add', 'swipe', 'list'].includes(p) ? p : 'add');
+  showTab(['add', 'swipe', 'list', 'buy', 'want'].includes(p) ? p : 'add');
 }
 try { google.script.url.getLocation(loc => start(loc.parameter)); } catch (e) { start({}); }
 </script>

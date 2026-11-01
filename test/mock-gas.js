@@ -36,8 +36,8 @@ function formatDate(d, tz, fmt) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 }
 
-function makeEnv({ items, archive, mail = [], now } = {}) {
-  const sheets = { Items: new FakeSheet('Items', items), Archive: new FakeSheet('Archive', archive) };
+function makeEnv({ items, archive, buy = [BUY_HEAD], wish = [WISH_HEAD], mail = [], now } = {}) {
+  const sheets = { Items: new FakeSheet('Items', items), Archive: new FakeSheet('Archive', archive), Buy: new FakeSheet('Buy', buy), Wishlist: new FakeSheet('Wishlist', wish) };
   const props = {};
   const triggers = [];
   const labels = {};
@@ -65,7 +65,7 @@ function makeEnv({ items, archive, mail = [], now } = {}) {
         return Object.values(byThread).map(ms => ({
           labels: [],
           addLabel(l) { this.labels.push(l.name); },
-          getMessages: () => ms.map(m => ({ getId: () => m.id, isInTrash: () => !!m.trash, getFrom: () => m.from, getSubject: () => m.subject || '', getPlainBody: () => m.body || '' }))
+          getMessages: () => ms.map(m => ({ getId: () => m.id, isInTrash: () => !!m.trash, getFrom: () => m.from, getTo: () => m.to || 'scampbell1322+track@gmail.com', getCc: () => '', getSubject: () => m.subject || '', getPlainBody: () => m.body || '' }))
         }));
       }
     }
@@ -73,12 +73,14 @@ function makeEnv({ items, archive, mail = [], now } = {}) {
   vm.createContext(ctx);
   const dir = path.join(__dirname, '..', 'apps-script');
   vm.runInContext(fs.readFileSync(path.join(dir, 'Code.gs'), 'utf8'), ctx, { filename: 'Code.gs' });
-  vm.runInContext(fs.readFileSync(path.join(dir, 'Mail.gs'), 'utf8'), ctx, { filename: 'Mail.gs' });
+  for (const f of ['Shop.gs', 'Mail.gs']) vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx, { filename: f });
   return { ctx, sheets, props, triggers, isLocked: () => lockHeld };
 }
 
 // Copy of the real Items and Archive tabs as read on 2026-10-30 (after the date fix),
 // plus the raw 46319 serial on one row to test the date repair.
+const BUY_HEAD = ['ID', 'Item', 'Qty', 'Store', 'Status', 'Added', 'Got date', 'Usual', 'Notes'];
+const WISH_HEAD = ['ID', 'Item', 'Est. price', 'Target price', 'Watch for', 'Why', 'Link', 'Status', 'Added', 'Closed date'];
 const HEAD = ['ID', 'Item', 'Priority', 'Status', 'First seen', 'Last mentioned', 'Mentions', 'Done date', 'Possible dupe of', 'Stale', 'Outcome'];
 function realItems() {
   return [
@@ -102,4 +104,4 @@ function realArchive() {
   return rows;
 }
 
-module.exports = { makeEnv, realItems, realArchive, HEAD };
+module.exports = { makeEnv, realItems, realArchive, HEAD, BUY_HEAD, WISH_HEAD };
