@@ -53,13 +53,16 @@ The Apps Script editor does not work well on a phone. Do Part 1 on a computer.
 
 ### Part 2: Add it to the phone home screen
 
-1. On the phone, open the URL in Chrome. Use the same Google account.
+1. On the phone, open the URL in Chrome (a normal tab, not Incognito). Use the same Google account.
 2. Add `?page=add` to the end of the URL. Example: `https://script.google.com/macros/s/.../exec?page=add`. Load it.
-3. Tap Chrome's **⋮** menu → **Add to Home screen**. Name it `Add task`.
-4. Repeat with `?page=swipe`. Name it `Sunday review`.
-5. Optional: repeat with `?page=buy` (name it `Buy list`) and `?page=want` (name it `Wishlist`).
+3. Tap Chrome's **⋮** menu → **Add to Home screen** (scroll down in the menu if you do not see it). Chrome asks **Install** or **Create shortcut**: tap **Create shortcut**. "Install" may drop the `?page=` ending. Name it `Add task`. Tap **Add**.
+4. Tap the new icon. Check that it opens on the **Add** tab.
+5. Repeat with `?page=swipe`. Name it `Sunday review`.
+6. Optional: repeat with `?page=buy` (name it `Buy list`) and `?page=want` (name it `Wishlist`).
 
-If the page says "Sorry, unable to open the file," Chrome is signed in to more than one Google account. Open the link in an Incognito tab signed in to this account only, or sign out of the other accounts.
+Chrome hides **Add to Home screen** in Incognito tabs.
+
+If the page says "Sorry, unable to open the file," Chrome is signed in to more than one Google account. Sign out of the other accounts in Chrome, or use **Samsung Internet** signed in to this account only: **≡** menu → **Add page to** → **Home screen**.
 
 ### Part 3: First-run check (5 minutes)
 
