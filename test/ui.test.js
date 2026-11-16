@@ -101,7 +101,8 @@ test('Swipe tab: drag, buttons, go back, reviewed cards hidden, show all', async
     await page.click('#btns button[data-d="D"]');
     await page.waitForTimeout(500);
     assert.equal(row(env, 'T-016')[3], 'Open');
-    assert.equal(row(env, 'T-016')[11], 'In process 2026-10-30');
+    assert.equal(row(env, 'T-016')[11], 'Later 2026-10-30');
+    assert.equal(row(env, 'T-016')[3], 'Open', 'Later keeps the task open');
     assert.equal(await page.locator('#count').textContent(), '5 left');
 
     // Go back undoes the last swipe in the Sheet and returns the card.
@@ -111,10 +112,12 @@ test('Swipe tab: drag, buttons, go back, reviewed cards hidden, show all', async
     assert.equal(row(env, 'T-016')[11], '');
     assert.match(await page.locator('.card:not(.under) h2').textContent(), /George and Zelda/);
 
-    // Keyboard arrows work on the swipe tab.
+    // Keyboard arrows work on the swipe tab. Left = Cancel.
     await page.keyboard.press('ArrowLeft');
-    await page.waitForTimeout(500);
-    assert.equal(row(env, 'T-016')[11], 'Not done 2026-10-30');
+    await page.waitForFunction(() => /Cancelled\. Tap Go back to undo\./.test(document.querySelector('#toast').textContent));
+    assert.equal(row(env, 'T-016')[3], 'Cancelled');
+    assert.equal(row(env, 'T-016')[7], '', 'no Done date for a cancelled task');
+    assert.equal(row(env, 'T-016')[11], 'Cancelled 2026-10-30');
 
     // Reload hides cards reviewed today; show all brings them back.
     await page.click('#dclose');
@@ -122,14 +125,16 @@ test('Swipe tab: drag, buttons, go back, reviewed cards hidden, show all', async
     assert.equal(await page.locator('#handle').textContent(), '▲ buttons');
     await page.click('#reload');
     await page.waitForFunction(() => /left/.test(document.querySelector('#count').textContent));
-    assert.equal(await page.locator('#count').textContent(), '5 left', '7 open minus T-015 and T-016 reviewed today');
+    assert.equal(await page.locator('#count').textContent(), '5 left', '6 open (T-016 cancelled) minus T-015 reviewed today');
     await page.click('#all');
-    await page.waitForFunction(() => document.querySelector('#count').textContent === '7 left');
+    await page.waitForFunction(() => document.querySelector('#count').textContent === '6 left');
+    assert.equal(await page.locator('.card', { hasText: 'George and Zelda' }).count(), 0, 'cancelled task never comes back');
 
     // Swipe every card: the empty message shows.
     await page.click('#all'); await page.waitForFunction(() => document.querySelector('#count').textContent === '5 left');
-    for (let i = 0; i < 5; i++) { await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(480); }
+    for (let i = 0; i < 5; i++) { await page.keyboard.press('ArrowDown'); await page.waitForTimeout(480); }
     assert.equal(await page.locator('#count').textContent(), '0 left');
+    assert.deepEqual(await page.locator('#btns button').allTextContents(), ['← Cancel', '↓ Later', '↑ Escalate', '→ Done']);
     assert.equal(await page.locator('#empty').isVisible(), true);
 
     const sw = await page.evaluate(() => document.documentElement.scrollWidth);

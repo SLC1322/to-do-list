@@ -64,6 +64,7 @@ class FakeCalendar {
     const ev = { id: 'ev' + (++this.n) + '@google.com', title, start: new Date(start), end: new Date(end), description: opts.description || '', reminders: [{ popup: 30 }], deleted: false };
     const api = {
       getId: () => ev.id, getTitle: () => ev.title, setTitle: t => { ev.title = t; return api; },
+      getStartTime: () => new Date(ev.start), getEndTime: () => new Date(ev.end),
       setTime: (a, b) => { ev.start = new Date(a); ev.end = new Date(b); return api; },
       removeAllReminders: () => { ev.reminders = []; return api; },
       addPopupReminder: m => { ev.reminders.push({ popup: m }); return api; },

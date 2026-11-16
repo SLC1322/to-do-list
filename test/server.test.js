@@ -83,17 +83,31 @@ test('swipe Done sets Status, Done date, and creates the "Last review" column in
   assert.ok(!sheets.Items.writes.some(([, c]) => c === 10 || c === 11), 'never writes J or K');
 });
 
-test('swipe Escalate sets High; In process and Not done only write the review column', () => {
+test('swipe Escalate sets High; Later only writes the review column; Cancel sets Status Cancelled', () => {
   const { ctx, sheets } = env();
   ctx.swipe('T-001', 'U'); ctx.swipe('T-015', 'D'); ctx.swipe('T-016', 'L');
   const g = id => sheets.Items.grid[rowOf(sheets.Items, id) - 1];
   assert.equal(g('T-001')[2], 'High'); assert.equal(g('T-001')[3], 'Open'); assert.equal(g('T-001')[11], 'Escalated 2026-10-30');
-  assert.equal(g('T-015')[3], 'Open', 'In process keeps Status Open so the nightly merge still works');
-  assert.equal(g('T-015')[11], 'In process 2026-10-30');
-  assert.equal(g('T-016')[2], ''); assert.equal(g('T-016')[11], 'Not done 2026-10-30');
+  assert.equal(g('T-015')[3], 'Open', 'Later keeps Status Open');
+  assert.equal(g('T-015')[11], 'Later 2026-10-30');
+  assert.equal(g('T-016')[3], 'Cancelled'); assert.equal(g('T-016')[7] || '', '', 'no Done date');
+  assert.equal(g('T-016')[11], 'Cancelled 2026-10-30');
   assert.equal(sheets.Items.grid[0].filter(h => h === 'Last review').length, 1, 'only one review header');
   const open = plain(ctx.getOpenItems()).items;
-  assert.equal(open.find(i => i.id === 'T-015').review, 'In process 2026-10-30');
+  assert.equal(open.find(i => i.id === 'T-015').review, 'Later 2026-10-30');
+  assert.equal(open.find(i => i.id === 'T-016'), undefined, 'cancelled task is not open');
+  assert.throws(() => ctx.swipe('T-016', 'R'), /already Cancelled/);
+});
+
+test('Go back after Cancel reopens the task exactly', () => {
+  const { ctx, sheets } = env();
+  const before = Array.from({ length: 9 }, (_, i) => sheets.Items.grid[rowOf(sheets.Items, 'T-028') - 1][i] ?? '');
+  const { prev } = plain(ctx.swipe('T-028', 'L'));
+  ctx.undoSwipe('T-028', prev);
+  const after = sheets.Items.grid[rowOf(sheets.Items, 'T-028') - 1];
+  assert.deepEqual(after.slice(0, 9), before);
+  assert.equal(after[11], '');
+  assert.ok(plain(ctx.getOpenItems()).items.some(i => i.id === 'T-028'));
 });
 
 test('undoSwipe puts every changed cell back', () => {

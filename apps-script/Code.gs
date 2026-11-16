@@ -9,7 +9,7 @@ var TIME_ZONE     = 'America/New_York'; // Time zone for "today" dates.
 var REVIEW_HEADER = 'Last review';      // Header text of the column the swipe deck writes to (column L).
 var APP_TITLE     = 'Master To-Do';     // Browser tab title.
 var HIGH_WORDS    = ['urgent', 'priority', 'high', 'important']; // Words that make a new task "High" (same rule as the nightly job).
-var SWIPE_LABELS  = { L: 'Not done', R: 'Done', U: 'Escalated', D: 'In process' }; // Text written in the review column for each swipe.
+var SWIPE_LABELS  = { L: 'Cancelled', R: 'Done', U: 'Escalated', D: 'Later' }; // Text written in the review column for each swipe.
 /* =====================================================================
    END OF SETTINGS. Everything below: leave alone.
    ===================================================================== */
@@ -25,15 +25,17 @@ function doGet() {
 
 /* ---------- Called from the page ---------- */
 
-// Returns all tasks whose Status is not "Done".
+// Returns all tasks that are still open (not Done, not Cancelled).
 function getOpenItems() {
   var sheet = itemsSheet_();
   var rows = readRows_(sheet, columns_(sheet));
   return {
     today: today_(),
-    items: rows.filter(function (r) { return r.status.toLowerCase() !== 'done'; })
+    items: rows.filter(function (r) { return isOpen_(r.status); })
   };
 }
+
+function isOpen_(status) { var s = String(status || '').toLowerCase(); return s !== 'done' && s !== 'cancelled'; }
 
 // Adds one task. Returns the new task.
 function addItem(text, high) {
@@ -65,7 +67,7 @@ function addItem(text, high) {
   });
 }
 
-// Records one swipe. dir is L, R, U or D. Returns the old values so the page can undo.
+// Records one swipe. dir is L (Cancel), R (Done), U (Escalate) or D (Later). Returns the old values so the page can undo.
 function swipe(id, dir) {
   if (!SWIPE_LABELS.hasOwnProperty(dir)) throw new Error('Unknown swipe direction: ' + dir);
   return withLock_(function () {
@@ -73,7 +75,7 @@ function swipe(id, dir) {
     var c = columns_(sheet);
     checkLayout_(c.head);
     var r = findRow_(sheet, c, id);
-    if (r.status.toLowerCase() === 'done') throw new Error(id + ' is already Done.');
+    if (!isOpen_(r.status)) throw new Error(id + ' is already ' + r.status + '.');
     var reviewCol = ensureReviewColumn_(sheet, c);
     var prev = { priority: r.priority, status: r.status, doneDate: r.doneDate, review: r.review };
     var date = today_();
@@ -83,6 +85,14 @@ function swipe(id, dir) {
       sheet.getRange(r.row, c.status).setValue('Done');
       setText_(sheet, r.row, c.done, date);
       if (r.scheduled) warning = markEventDone_(sheet, c, r.row, true); // ✓ on the calendar event
+    }
+    if (dir === 'L') {
+      sheet.getRange(r.row, c.status).setValue('Cancelled'); // Done date stays blank: a cancelled task is not an accomplishment
+      if (r.scheduled) {
+        var cut = cancelEvent_(sheet, c, r.row); // deletes the calendar event, keeps its times for Go back
+        prev.event = cut.saved;
+        warning = cut.warning;
+      }
     }
     if (dir === 'U') sheet.getRange(r.row, c.pri).setValue('High');
     setText_(sheet, r.row, reviewCol, SWIPE_LABELS[dir] + ' ' + date);
@@ -104,6 +114,7 @@ function undoSwipe(id, prev) {
     setText_(sheet, r.row, c.done, String(prev.doneDate || ''));
     setText_(sheet, r.row, reviewCol, String(prev.review || ''));
     var warning = (r.scheduled && String(prev.status).toLowerCase() !== 'done') ? markEventDone_(sheet, c, r.row, false) : '';
+    if (prev.event && typeof prev.event === 'object') warning = restoreEvent_(sheet, c, r.row, prev.event, r.text, r.id) || warning;
     return { id: id, warning: warning };
   });
 }

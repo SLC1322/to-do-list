@@ -42,3 +42,12 @@ The "Check nightly Daily Notes run" job (12:15 AM, read-only) was rewritten the 
 6. The nightly job and the 8 PM swipe reminder both succeeded.
 
 It reports to your phone and names open High or Stale tasks.
+
+
+## 2026-11-16 (later): Cancel swipe
+
+The swipe deck now has ← Cancel (Status "Cancelled", Done date blank, Last review "Cancelled yyyy-mm-dd") and ↓ Later (replaces Not done and In process).
+
+- Nightly job, step 2a: also archives Cancelled rows whose Last review cancel date is 7 or more days old. They keep Status "Cancelled" and a blank Done date in Archive, so the briefs never count them as finished.
+- Checker, check 2: also flags Cancelled rows older than 8 days still in Items.
+- The Stale formula in J1 only flags Status "Open", so cancelled tasks are never Stale. No change needed.

@@ -139,3 +139,57 @@ test('scheduleTrip makes a store run with that store\'s items (and no-store item
   assert.match(e.calendar.live()[2].description, /^\(nothing listed yet\)/);
   assert.equal(none.items, 1);
 });
+
+test('Cancel deletes the event and clears M and N; Go back rebuilds it at the same time', () => {
+  const e = env();
+  e.ctx.scheduleTask('T-026', '2026-11-08T16:30', 45);
+  const s = plain(e.ctx.swipe('T-026', 'L'));
+  assert.equal(s.warning, '');
+  assert.equal(e.calendar.live().length, 0, 'event deleted');
+  assert.equal(row(e, 'T-026')[3], 'Cancelled');
+  assert.equal(row(e, 'T-026')[12], ''); assert.equal(row(e, 'T-026')[13], '');
+  assert.deepEqual(s.prev.event, { scheduled: '2026-11-08 16:30', start: '2026-11-08T21:30:00.000Z', end: '2026-11-08T22:15:00.000Z' });
+  const u = plain(e.ctx.undoSwipe('T-026', s.prev));
+  assert.equal(u.warning, '');
+  const [ev] = e.calendar.live();
+  assert.equal(ev.title, 'Take off Monday November 16th');
+  assert.equal(ev.start.toISOString(), '2026-11-08T21:30:00.000Z');
+  assert.equal(ev.end.toISOString(), '2026-11-08T22:15:00.000Z');
+  assert.deepEqual(ev.reminders, [{ popup: 10 }]);
+  assert.equal(row(e, 'T-026')[3], 'Open');
+  assert.equal(row(e, 'T-026')[12], '2026-11-08 16:30');
+  assert.equal(row(e, 'T-026')[13], ev.id, 'new event ID saved');
+});
+
+test('Cancel with the event already deleted in Calendar still cancels, with a note', () => {
+  const e = env();
+  e.ctx.scheduleTask('T-026', '2026-11-08T16:30', 30);
+  e.calendar.events[0].deleted = true;
+  const s = plain(e.ctx.swipe('T-026', 'L'));
+  assert.equal(row(e, 'T-026')[3], 'Cancelled');
+  assert.match(s.warning, /already gone/);
+  assert.equal(row(e, 'T-026')[13], '');
+  const u = plain(e.ctx.undoSwipe('T-026', s.prev));
+  assert.equal(row(e, 'T-026')[3], 'Open');
+  assert.match(u.warning, /could not be rebuilt/);
+  assert.equal(e.calendar.live().length, 0);
+});
+
+test('A calendar error never blocks a Cancel', () => {
+  const e = env();
+  e.ctx.scheduleTask('T-001', '2026-11-08T16:30', 30);
+  e.calendar.getEventById = () => { throw new Error('Calendar is down'); };
+  const s = plain(e.ctx.swipe('T-001', 'L'));
+  assert.equal(row(e, 'T-001')[3], 'Cancelled');
+  assert.match(s.warning, /not deleted: Calendar is down/);
+  assert.equal(row(e, 'T-001')[12], '2026-11-08 16:30', 'schedule kept so you can see the event still exists');
+  assert.equal(e.isLocked(), false);
+});
+
+test('Cancel on an unscheduled task does not touch the calendar', () => {
+  const e = env();
+  const s = plain(e.ctx.swipe('T-001', 'L'));
+  assert.equal(s.prev.event, undefined);
+  assert.equal(e.calendar.events.length, 0);
+  assert.equal(e.sheets.Items.grid[0].length, 12, 'no calendar columns created');
+});

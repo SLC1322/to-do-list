@@ -97,6 +97,49 @@ function markEventDone_(sheet, c, row, done) {
   }
 }
 
+// Cancel swipe: deletes the task's event and clears M and N. Returns the event's times so Go back can rebuild it.
+// Never throws: a calendar problem must not block the swipe.
+function cancelEvent_(sheet, c, row) {
+  try {
+    var cols = ensureCalendarColumns_(sheet, c);
+    var scheduled = str_(sheet.getRange(row, cols.scheduled).getValue());
+    var evId = str_(sheet.getRange(row, cols.event).getValue());
+    var saved = { scheduled: scheduled, start: '', end: '' };
+    var warning = '';
+    var ev = evId ? calendar_().getEventById(evId) : null;
+    if (ev) {
+      saved.start = ev.getStartTime().toISOString();
+      saved.end = ev.getEndTime().toISOString();
+      ev.deleteEvent();
+    } else if (evId) {
+      warning = 'The calendar event was already gone.';
+    }
+    setText_(sheet, row, cols.scheduled, '');
+    setText_(sheet, row, cols.event, '');
+    return { saved: saved, warning: warning };
+  } catch (e) {
+    return { saved: null, warning: 'Cancelled, but the calendar event was not deleted: ' + e.message };
+  }
+}
+
+// Go back after a Cancel: makes the event again at the same time. Returns a warning or ''.
+function restoreEvent_(sheet, c, row, saved, text, id) {
+  try {
+    var cols = ensureCalendarColumns_(sheet, c);
+    var start = new Date(String(saved.start || '')), end = new Date(String(saved.end || ''));
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
+      return saved.scheduled ? 'The task is back, but its calendar event could not be rebuilt. Schedule it again.' : '';
+    }
+    var ev = calendar_().createEvent(String(text).slice(0, 200), start, end, { description: 'Task ' + id + ' from Master To-Do.' });
+    setReminder_(ev);
+    setText_(sheet, row, cols.scheduled, Utilities.formatDate(start, TIME_ZONE, 'yyyy-MM-dd HH:mm'));
+    setText_(sheet, row, cols.event, ev.getId());
+    return '';
+  } catch (e) {
+    return 'The task is back, but its calendar event was not rebuilt: ' + e.message;
+  }
+}
+
 /* ---------- Helpers ---------- */
 
 function calendar_() {

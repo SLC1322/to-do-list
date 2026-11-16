@@ -5,7 +5,7 @@ A phone web app for the "Master Task List" Google Sheet. It has five tabs:
 | Tab | What it does | What it writes to the Sheet (Items tab) |
 |---|---|---|
 | **Add** | Type or dictate a task, optionally mark it High, then save. | A new row: next T-number, Status "Open", today's date as text. |
-| **Swipe** | The Sunday review deck. It loads open tasks live from the Sheet. The drawer has a **📅 Schedule** button for the top card. | → Done: Status "Done" + Done date. ↑ Escalate: Priority "High". ↓ In process and ← Not done: only column L, "Last review". Every swipe also writes column L (for example "In process 2026-11-01"). |
+| **Swipe** | The Sunday review deck. It loads open tasks live from the Sheet. The drawer has a **📅 Schedule** button for the top card. | → Done: Status "Done" + Done date. ↑ Escalate: Priority "High". ↓ Later: only column L; the task stays Open. ← Cancel (for tasks that no longer matter): Status "Cancelled", no Done date, and its calendar event is deleted; the task leaves the app and moves to Archive after 7 days. **Go back** undoes any swipe, including a Cancel (the event is rebuilt at the same time). Every swipe also writes column L (for example "Later 2026-11-16"). |
 | **List** | Open tasks, High first, then oldest. Tap 📅 on a task to put it on your calendar. | Only when you schedule: column M "Scheduled" and column N "Event ID". |
 | **Buy** | Short-term buy list, grouped by **category** (Groceries, Household, Hardware, Hunting & outdoors, Health & personal, Other). The store shows beside each item. Leave the category on "Auto category" and the app guesses it from the name; **✎ categories** lets you fix a wrong guess. Tap an item when you get it. ★ marks a "usual" item; ✕ removes an item. **📅 Plan trip** chips put a store run on your calendar. | **Buy** tab: B-001 and up; column J "Category" (the app adds the header itself). Got items stay for 7 days under "Got in the last 7 days" (tap to put back). Usual items become one-tap "add again" chips. |
 | **Want** | Long-term wishlist. Tap a card to show the reason, the link, and the buttons: **Buy list**, **Bought**, **Drop**. | **Wishlist** tab: W-001 and up. Prices are numbers. Closed items show under "show closed". |
@@ -87,6 +87,7 @@ Paste the new code, save, then click **Deploy → Manage deployments → pencil 
 - **Tasks:** tap 📅 (List tab) or **📅 Schedule** (Swipe drawer). Pick a quick time or set the date and time, then pick a length. The length is not preset: you choose it each time.
 - **Moving:** schedule the same task again. The app moves the existing event; it does not make a second one.
 - **Done:** when you swipe a scheduled task Done, its event title gets a ✓ in front. **Go back** removes the ✓. A calendar problem never blocks the swipe; you get a message instead.
+- **Cancel:** when you swipe a scheduled task left (Cancel), its event is deleted. **Go back** makes the event again at the same time, with the same reminder.
 - **Shopping trips:** tap a store chip after **📅 Plan trip** on the Buy tab. The event is "🛒 Food Lion run" (for example). Its notes list that store's items plus items with no store, **as of the moment you schedule it**. Items added later are not added to the event; open the app at the store.
 - **Calendar:** your main Google Calendar. A popup reminder fires 10 minutes before, and your watch buzzes if it shows phone notifications.
 - **Limits:** a task finished by voice (`~~track: ...~~`) gets no ✓; only the app adds the ✓. The quick picks use your phone's clock.
@@ -123,11 +124,11 @@ Install:
 
 ## Tests
 
-`npm test` runs 62 tests:
+`npm test` runs 67 tests:
 
-- **Tasks, server (15):** the real `Code.gs` and `Mail.gs` run against a copy of the real Items and Archive rows (as of 2026-10-30). They check IDs, text-format dates, the High word rule, column J never written, layout protection, every swipe direction, undo, lookup by ID after rows move, and the email sender filter.
+- **Tasks, server (16):** the real `Code.gs` and `Mail.gs` run against a copy of the real Items and Archive rows (as of 2026-10-30). They check IDs, text-format dates, the High word rule, column J never written, layout protection, every swipe direction (Cancel, Later, Escalate, Done), undo, lookup by ID after rows move, and the email sender filter.
 - **Shopping, server (20):** the real `Shop.gs` on fake Buy and Wishlist tabs. They check IDs, category guessing, the Category header added to an old tab, a picked category winning over the guess, changing a category, store detection in text ("eggs at food lion"), re-use of an existing row, usual items, every status change, price parsing, refusing unsafe links, duplicate wishlist items, layout protection, rows written by the nightly job, and email routing by address and label.
-- **Calendar, server (11):** the real `Calendar.gs` on a fake Google Calendar. They check the event time across the 2026-11-01 clock change and in summer time, the 10-minute reminder, columns L, M and N, moving instead of duplicating, a deleted event, removing, the ✓ on Done and its removal on Go back, a calendar error never blocking a swipe, bad dates and lengths, and shopping trip notes.
+- **Calendar, server (15):** the real `Calendar.gs` on a fake Google Calendar. They check the event time across the 2026-11-01 clock change and in summer time, the 10-minute reminder, columns L, M and N, moving instead of duplicating, a deleted event, removing, the ✓ on Done and its removal on Go back, Cancel deleting the event and Go back rebuilding it, an event already deleted by hand, a calendar error never blocking a swipe, bad dates and lengths, and shopping trip notes.
 - **Page (16):** the real `Index.html` in Chromium at phone size (390 × 844), connected to the same server code. They check all five tabs, drag and button swipes, Go back, the Buy and Want flows from start to end, category grouping and editing, the scheduler from the List tab, the Swipe drawer and the Buy tab, quick picks on a fixed phone clock, failure handling, draft saving, HTML in item names shown as plain text, no sideways scroll, and dark and light mode.
 
 Not tested: the live Google deployment, your phone's Chrome, and the watch.

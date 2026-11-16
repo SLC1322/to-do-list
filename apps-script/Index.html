@@ -55,8 +55,9 @@ const EDIT = {
   saveButton: 'Save task',                    // Save button text
   highLabel: 'High priority',                 // Text beside the High switch
   emptyDeck: 'All reviewed. Good work.',      // Text when no cards are left
-  btnNo: '← Not done', btnDown: '↓ In process', btnUp: '↑ Escalate', btnYes: '→ Done', // Drawer buttons
-  stampNo: 'NOT DONE', stampYes: 'DONE', stampUp: 'ESCALATE', stampDown: 'IN PROCESS', // Card stamps
+  btnNo: '← Cancel', btnDown: '↓ Later', btnUp: '↑ Escalate', btnYes: '→ Done', // Drawer buttons
+  stampNo: 'CANCEL', stampYes: 'DONE', stampUp: 'ESCALATE', stampDown: 'LATER', // Card stamps
+  cancelToast: 'Cancelled. Tap Go back to undo.', // Message after a Cancel swipe
   // Sounds for each swipe. Set a value to '' for no sound. E plays after the last card.
   sounds: {
     R: 'https://hoovers.101soundboards.com/sb/sounds_rendered/ro7ty7ddmvtdileo.mp3',
@@ -442,7 +443,7 @@ function decide(d) {
   }
   ping(d); deck.shift();
   // Write to the Sheet. If it fails, put the card back on top.
-  const entry = {it, d, done: run('swipe', it.id, d).then(r => { if (r.warning) toast(r.warning, true); return r.prev; }).catch(e => {
+  const entry = {it, d, done: run('swipe', it.id, d).then(r => { if (r.warning) toast(r.warning, true); else if (d === 'L') toast(EDIT.cancelToast); return r.prev; }).catch(e => {
     toast('Not saved: ' + e.message, true);
     const i = history.indexOf(entry); if (i >= 0) history.splice(i, 1);
     deck.unshift(it); render(); return null;
