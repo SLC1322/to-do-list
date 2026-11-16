@@ -11,15 +11,16 @@ const wishRows = env => env.sheets.Wishlist.grid.slice(1);
 const waitToast = (page, re) => page.waitForFunction(r => new RegExp(r).test(document.querySelector('#toast').textContent), re.source);
 const noSideScroll = async page => assert.ok(await page.evaluate(() => document.documentElement.scrollWidth) <= 390, 'no horizontal scroll');
 
-test('Buy tab: add with store, group by store, auto-store, got, usual re-add, put back, remove', async () => {
+test('Buy tab: add, group by category, store as detail, auto category, got, usual re-add, put back, remove', async () => {
   const { env, browser, page, errors } = await open({ page: 'buy', now: NOW });
   page.on('dialog', d => d.accept());
   try {
     await page.waitForSelector('#pBuy.on');
     assert.equal(await page.locator('#tabs button.on').textContent(), 'Buy');
     assert.match(await page.locator('#buyList').textContent(), /Nothing to buy/);
-    const opts = await page.locator('#bStore option').allTextContents();
-    assert.deepEqual(opts, ['Any store', "Brinkley's Hardware", 'Amazon', "Lowe's", 'Food Lion', 'Walmart']);
+    assert.deepEqual(await page.locator('#bStore option').allTextContents(), ['Any store', "Brinkley's Hardware", 'Amazon', "Lowe's", 'Food Lion', 'Walmart']);
+    assert.deepEqual(await page.locator('#bCat option').allTextContents(), ['Auto category', 'Groceries', 'Household', 'Hardware', 'Hunting & outdoors', 'Health & personal', 'Other']);
+    assert.equal(await page.locator('#bEdit').isVisible(), false, 'no edit link on an empty list');
 
     await page.click('#bAdd');
     await waitToast(page, /Type or say an item first/);
@@ -27,18 +28,24 @@ test('Buy tab: add with store, group by store, auto-store, got, usual re-add, pu
     await page.fill('#bItem', 'Eggs'); await page.fill('#bQty', '2 dozen');
     await page.selectOption('#bStore', 'Food Lion'); await page.check('#bUsual');
     await page.click('#bAdd');
-    await waitToast(page, /Added Eggs · Food Lion/);
-    assert.deepEqual(buyRows(env)[0].slice(0, 8), ['B-001', 'Eggs', '2 dozen', 'Food Lion', 'Need', '2026-11-01', '', 'yes']);
+    await waitToast(page, /Added Eggs · Groceries · Food Lion/);
+    assert.deepEqual(buyRows(env)[0], ['B-001', 'Eggs', '2 dozen', 'Food Lion', 'Need', '2026-11-01', '', 'yes', '', 'Groceries']);
     assert.equal(await page.inputValue('#bItem'), ''); assert.equal(await page.isChecked('#bUsual'), false);
     assert.equal(await page.inputValue('#bStore'), 'Food Lion', 'store choice stays for the next item');
 
     await page.selectOption('#bStore', '');
     await page.fill('#bItem', 'deck screws at Lowes'); await page.press('#bItem', 'Enter');
-    await waitToast(page, /Added deck screws · Lowe's/);
-    await page.fill('#bItem', 'Duct tape'); await page.click('#bAdd');
-    await waitToast(page, /Added Duct tape/);
-    const groups = (await page.locator('#buyList .grp').allTextContents()).map(t => t.replace('📅 Plan trip', ''));
-    assert.deepEqual(groups, ["Lowe's · 1", 'Food Lion · 1', 'No store · 1']);
+    await waitToast(page, /Added deck screws · Hardware · Lowe's/);
+    await page.fill('#bItem', 'Tea lights'); await page.selectOption('#bCat', 'Household'); await page.click('#bAdd');
+    await waitToast(page, /Added Tea lights · Household/);
+    assert.equal(await page.inputValue('#bCat'), '', 'category goes back to Auto');
+    await page.fill('#bItem', 'Milk'); await page.selectOption('#bStore', 'Walmart'); await page.click('#bAdd');
+    await waitToast(page, /Added Milk · Groceries · Walmart/);
+
+    const groups = await page.locator('#buyList .grp').allTextContents();
+    assert.deepEqual(groups, ['Groceries · 2', 'Household · 1', 'Hardware · 1'], 'grouped by category, in settings order');
+    assert.match(await page.locator('.bi', { hasText: 'Eggs' }).textContent(), /Eggs · 2 dozen · Food Lion/);
+    assert.deepEqual(await page.locator('#tripRow .chip').allTextContents(), ["Lowe's", 'Food Lion', 'Walmart', 'Any store'], 'trip chips for stores with items');
     await page.screenshot({ path: path.join(__dirname, 'shots', 'buy.png') });
 
     // Tap Eggs: Got. It is a usual, so it shows as a re-add chip.
@@ -70,8 +77,35 @@ test('Buy tab: add with store, group by store, auto-store, got, usual re-add, pu
     // Adding an existing item reuses its row.
     await page.fill('#bItem', 'eggs'); await page.click('#bAdd');
     await waitToast(page, /already listed/);
-    assert.equal(buyRows(env).length, 3);
+    assert.equal(buyRows(env).length, 4);
 
+    await noSideScroll(page);
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+});
+
+test('Buy tab: edit categories moves an item to another group; taps do not tick it while editing', async () => {
+  const seed = { buy: [BUY_HEAD,
+    ['B-001', 'Tea lights', '', '', 'Need', '2026-11-01', '', '', ''],
+    ['B-002', 'Screws for handles', '', "Brinkley's Hardware", 'Need', '2026-11-01', '', '', '']] };
+  const { env, browser, page, errors } = await open({ page: 'buy', now: NOW, seed });
+  try {
+    await page.waitForSelector('.bi');
+    assert.deepEqual(await page.locator('#buyList .grp').allTextContents(), ['Groceries · 1', 'Hardware · 1'], 'old rows without a category are guessed');
+    await page.click('#bEdit');
+    assert.equal(await page.locator('#bEdit').textContent(), '✓ done');
+    assert.equal(await page.locator('select[data-cat]').count(), 2);
+    assert.equal(await page.locator('[data-usual]').count(), 0, 'star and X hidden while editing');
+    await page.click('[data-got="B-001"]');
+    await page.waitForTimeout(200);
+    assert.equal(buyRows(env)[0][4], 'Need', 'not ticked while editing');
+    await page.selectOption('select[data-cat="B-001"]', 'Household');
+    await waitToast(page, /Tea lights → Household/);
+    assert.equal(buyRows(env)[0][9], 'Household');
+    assert.deepEqual(await page.locator('#buyList .grp').allTextContents(), ['Household · 1', 'Hardware · 1']);
+    await page.screenshot({ path: path.join(__dirname, 'shots', 'buy-edit.png') });
+    await page.click('#bEdit');
+    assert.equal(await page.locator('select[data-cat]').count(), 0);
     await noSideScroll(page);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }

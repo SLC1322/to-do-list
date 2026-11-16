@@ -20,7 +20,7 @@ test('addBuy writes a text row B-001, B-002 with store, qty and usual', () => {
   const e = env();
   const a = plain(e.ctx.addBuy('buy: Eggs', '2 dozen', 'Food Lion', true));
   assert.equal(a.id, 'B-001');
-  assert.deepEqual(grid(e, 'Buy')[1], ['B-001', 'Eggs', '2 dozen', 'Food Lion', 'Need', '2026-11-01', '', 'yes', '']);
+  assert.deepEqual(grid(e, 'Buy')[1], ['B-001', 'Eggs', '2 dozen', 'Food Lion', 'Need', '2026-11-01', '', 'yes', '', 'Groceries']);
   assert.equal(e.sheets.Buy.formats['2,6'], '@', 'Added date is text');
   assert.equal(plain(e.ctx.addBuy('Deck screws', '', '', false)).id, 'B-002');
 });
@@ -153,4 +153,67 @@ test('Mail bridge routes by address and by label; tasks still work', () => {
   assert.equal(grid(e, 'Items').find(r => r[1] === 'Call the farrier')[0], 'T-029');
   assert.ok(!grid(e, 'Buy').some(r => r[1] === 'gift cards'));
   assert.equal(e.ctx.checkTrackMail(), 0);
+});
+
+test('Category: header J is created once on a tab made before categories existed', () => {
+  const e = env();
+  assert.equal(grid(e, 'Buy')[0].length, 9);
+  e.ctx.getShopping();
+  assert.equal(grid(e, 'Buy')[0][9], 'Category');
+  e.ctx.getShopping();
+  assert.equal(grid(e, 'Buy')[0].filter(h => h === 'Category').length, 1);
+});
+
+test('Category: rows without one are guessed on read and not written', () => {
+  const buy = [BUY_HEAD, ['B-006', 'Screws for handles', '', "Brinkley's Hardware", 'Need', '2026-11-09', '', '', ''],
+    ['B-002', 'Milk', '', 'Food Lion', 'Got', '2026-11-09', '2026-11-09', '', ''], ['B-009', 'Widget', '', '', 'Need', '2026-11-09', '', '', '']];
+  const e = env({ buy });
+  const s = plain(e.ctx.getShopping());
+  assert.deepEqual(s.categories, ['Groceries', 'Household', 'Hardware', 'Hunting & outdoors', 'Health & personal', 'Other']);
+  assert.deepEqual(s.buy.map(b => [b.id, b.category, b.categoryGuessed]), [['B-006', 'Hardware', true], ['B-002', 'Groceries', true], ['B-009', 'Other', true]]);
+  assert.equal(grid(e, 'Buy')[1][9], undefined, 'nothing written to the row');
+});
+
+test('Category: auto guess, picked value wins, unknown value falls back to the guess', () => {
+  const e = env();
+  assert.equal(plain(e.ctx.addBuy('#4 shot shells', '2 boxes', 'Walmart', false, '')).category, 'Hunting & outdoors');
+  assert.equal(plain(e.ctx.addBuy('Tea lights', '', '', false, 'Household')).category, 'Household');
+  assert.equal(plain(e.ctx.addBuy('Paint brushes', '', '', false, 'Snacks')).category, 'Hardware');
+  assert.equal(plain(e.ctx.addBuy('Eggs', '', '', false)).category, 'Groceries', 'old 4-argument call still works (email bridge)');
+});
+
+test('Category: re-adding an item keeps its category unless a new one is picked', () => {
+  const e = env();
+  const a = plain(e.ctx.addBuy('Coffee filters', '', '', true, 'Household'));
+  e.ctx.setBuyStatus(a.id, 'Got');
+  assert.equal(plain(e.ctx.addBuy('coffee filters', '', '', false, '')).category, 'Household');
+  assert.equal(plain(e.ctx.addBuy('coffee filters', '', '', false, 'Groceries')).category, 'Groceries');
+  const buy = [BUY_HEAD, ['B-001', 'Duct tape', '', '', 'Got', '2026-11-01', '2026-11-02', 'yes', '']];
+  const e2 = env({ buy });
+  e2.ctx.addBuy('Duct tape', '', '', false, '');
+  assert.equal(grid(e2, 'Buy')[1][9], 'Hardware', 'blank category filled with the guess on re-add');
+});
+
+test('Category: setBuyCategory changes one row and refuses unknown names', () => {
+  const e = env();
+  const a = plain(e.ctx.addBuy('Tea lights', '', '', false, ''));
+  assert.equal(a.category, 'Groceries');
+  assert.equal(plain(e.ctx.setBuyCategory(a.id, 'Household')).category, 'Household');
+  assert.equal(grid(e, 'Buy')[1][9], 'Household');
+  assert.throws(() => e.ctx.setBuyCategory(a.id, 'Snacks'), /Unknown category/);
+  assert.throws(() => e.ctx.setBuyCategory('B-999', 'Other'), /not found/);
+  assert.equal(e.isLocked(), false);
+});
+
+test('Category: a different header already in column J stops all writes', () => {
+  const buy = [BUY_HEAD.concat(['Aisle'])];
+  const e = env({ buy });
+  assert.throws(() => e.ctx.addBuy('Eggs', '', '', false, ''), /layout changed: column J should be "Category"/);
+  assert.equal(grid(e, 'Buy').length, 1);
+});
+
+test('Wishlist item moved to Buy gets a guessed category', () => {
+  const e = env();
+  const w = plain(e.ctx.addWant({ item: 'Trail cam batteries' }));
+  assert.equal(plain(e.ctx.wantToBuy(w.id)).buy.category, 'Household');
 });

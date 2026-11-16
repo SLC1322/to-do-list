@@ -34,6 +34,8 @@ const EDIT = {
   tabWant: 'Want',                            // Tab name: long-term wishlist
   buyPlaceholder: 'Item to buy',              // Grey text in the Buy box
   anyStore: 'Any store',                      // First choice in the store picker
+  autoCategory: 'Auto category',              // First choice in the category picker (guesses from the item name)
+  editCategories: '✎ categories',             // Buy tab link that shows a category picker on each item
   usualLabel: 'Usual (keep for one-tap re-add)', // Text beside the Usual switch
   buyEmpty: 'Nothing to buy. Lucky you.',     // Text when the buy list is empty
   wantNew: '+ Add to wishlist',               // Button that opens the wishlist form
@@ -132,6 +134,12 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:112.5%/
 .go:disabled{opacity:.5}
 .chk{display:flex;align-items:center;gap:8px;font-size:.7em;color:var(--dim)}
 .chk input{width:18px;height:18px;accent-color:var(--up)}
+#buyTools{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin:-2px 0 4px}
+#tripRow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.7em;color:var(--dim)}
+#tripRow .chip{font-size:1em;padding:4px 10px}
+#bEdit{flex:none;white-space:nowrap}
+.bi .st{color:var(--dim);font-size:.75em}
+.bi select.cat{flex:none;max-width:42%;border:1px solid var(--dim);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit;font-size:.7em;padding:4px}
 .grp{font-size:.65em;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin:12px 2px 6px}
 .bi{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:14px;padding:4px 4px 4px 12px;margin-bottom:6px}
 .bi .tick{flex:1;display:flex;align-items:center;gap:12px;background:none;border:0;color:var(--fg);font:inherit;text-align:left;padding:10px 0;min-width:0}
@@ -229,9 +237,11 @@ details.got summary{padding:6px 2px}
   <section class="page" id="pBuy">
     <div class="qa">
       <input id="bItem" maxlength="300" enterkeyhint="done">
-      <div class="qrow"><input id="bQty" maxlength="50" placeholder="Qty"><select id="bStore"></select><button class="go" id="bAdd">Add</button></div>
+      <div class="qrow"><input id="bQty" maxlength="50" placeholder="Qty"><select id="bStore" aria-label="Store"></select><button class="go" id="bAdd">Add</button></div>
+      <select id="bCat" aria-label="Category"></select>
       <label class="chk"><input type="checkbox" id="bUsual"><span id="bUsualLabel"></span></label>
     </div>
+    <div id="buyTools"><span id="tripRow"></span><button class="lnk" id="bEdit"></button></div>
     <div id="buyList" class="scroll"><div id="loading">Loading…</div></div>
   </section>
 
@@ -474,6 +484,9 @@ async function loadShop() {
   const sel = $('#bStore'), cur = sel.value;
   sel.innerHTML = `<option value="">${esc(EDIT.anyStore)}</option>` + (res.stores || []).map(st => `<option>${esc(st)}</option>`).join('');
   sel.value = cur;
+  const cs = $('#bCat'), cc = cs.value;
+  cs.innerHTML = `<option value="">${esc(EDIT.autoCategory)}</option>` + (res.categories || []).map(c => `<option>${esc(c)}</option>`).join('');
+  cs.value = cc;
   return res;
 }
 const byId = (arr, id) => arr.find(x => x.id === id);
@@ -484,16 +497,25 @@ async function refreshBuy() {
   try { await loadShop(); } catch (e) { $('#buyList').innerHTML = ''; toast('Could not load: ' + e.message, true); return; }
   renderBuy();
 }
+let editCats = false;
 function renderBuy() {
   const need = shop.buy.filter(b => b.status === 'Need');
-  const stores = [...(shop.stores || []), ''];
-  need.forEach(b => { if (!stores.includes(b.store)) stores.splice(stores.length - 1, 0, b.store); });
+  // Groups: categories in settings order; any other category found in the Sheet goes before the last one ("Other").
+  const cats = [...(shop.categories || [])];
+  need.forEach(b => { if (!cats.includes(b.category)) cats.splice(Math.max(cats.length - 1, 0), 0, b.category); });
   let html = '';
-  for (const st of stores) {
-    const rows = need.filter(b => b.store === st).sort((a, b) => a.item.localeCompare(b.item));
+  for (const c of cats) {
+    const rows = need.filter(b => b.category === c).sort((a, b) => a.item.localeCompare(b.item));
     if (!rows.length) continue;
-    html += `<div class="grp">${esc(st || 'No store')} · ${rows.length}<button class="trip" data-trip="${esc(st)}">${esc(EDIT.planTrip)}</button></div>` + rows.map(buyRow).join('');
+    html += `<div class="grp">${esc(c || 'Other')} · ${rows.length}</div>` + rows.map(buyRow).join('');
   }
+  // Trip planner: one chip per store that has items to buy, plus items with no store.
+  const tripStores = [...(shop.stores || []), ''].filter(st => need.some(b => b.store === st));
+  need.forEach(b => { if (!tripStores.includes(b.store)) tripStores.push(b.store); });
+  $('#tripRow').innerHTML = tripStores.length ? `<span>${esc(EDIT.planTrip)}:</span>` +
+    tripStores.map(st => `<button class="chip" data-trip="${esc(st)}">${esc(st || 'Any store')}</button>`).join('') : '';
+  $('#bEdit').textContent = editCats ? '✓ done' : EDIT.editCategories;
+  $('#bEdit').hidden = !need.length;
   if (!need.length) html += `<div class="empty">${esc(EDIT.buyEmpty)}</div>`;
   const usual = shop.buy.filter(b => b.usual === 'yes' && b.status !== 'Need').sort((a, b) => a.item.localeCompare(b.item));
   if (usual.length) html += `<div class="grp">Usuals · tap to add again</div><div class="chips">` +
@@ -504,16 +526,25 @@ function renderBuy() {
   $('#buyList').innerHTML = html;
 }
 function buyRow(b) {
-  return `<div class="bi" data-id="${esc(b.id)}"><button class="tick" data-got="${esc(b.id)}"><span class="box"></span><span class="nm">${esc(b.item)}${b.qty ? ` <span class="q">· ${esc(b.qty)}</span>` : ''}</span></button>` +
-    `<button class="ib${b.usual === 'yes' ? ' on' : ''}" data-usual="${esc(b.id)}" title="Usual">★</button><button class="ib" data-rm="${esc(b.id)}" title="Remove">✕</button></div>`;
+  const picker = editCats ? `<select class="cat" data-cat="${esc(b.id)}" aria-label="Category">` +
+    (shop.categories || []).map(c => `<option${c === b.category ? ' selected' : ''}>${esc(c)}</option>`).join('') + `</select>` : '';
+  return `<div class="bi" data-id="${esc(b.id)}"><button class="tick" data-got="${esc(b.id)}"><span class="box"></span><span class="nm">${esc(b.item)}${b.qty ? ` <span class="q">· ${esc(b.qty)}</span>` : ''}${b.store ? ` <span class="st">· ${esc(b.store)}</span>` : ''}</span></button>` +
+    (editCats ? picker : `<button class="ib${b.usual === 'yes' ? ' on' : ''}" data-usual="${esc(b.id)}" title="Usual">★</button><button class="ib" data-rm="${esc(b.id)}" title="Remove">✕</button>`) + `</div>`;
 }
+$('#bEdit').onclick = () => { editCats = !editCats; renderBuy(); };
+$('#tripRow').onclick = e => { const t = e.target.closest('[data-trip]'); if (t) openScheduler({ kind: 'trip', store: t.dataset.trip }); };
+$('#buyList').onchange = e => {
+  const sel = e.target.closest('select[data-cat]'); if (!sel) return;
+  const b = byId(shop.buy, sel.dataset.cat);
+  buyAct('setBuyCategory', (b ? b.item : 'Item') + ' → ' + sel.value, sel.dataset.cat, sel.value);
+};
 async function buyAct(fn, label, ...args) {
   try { const r = await run(fn, ...args); await refreshBuy(); if (label) toast(label); return r; } // list first, then the message
   catch (e) { toast('Not saved: ' + e.message, true); await refreshBuy(); }
 }
 $('#buyList').onclick = e => {
   const t = e.target.closest('button'); if (!t) return;
-  if (t.dataset.trip !== undefined) { openScheduler({ kind: 'trip', store: t.dataset.trip }); return; }
+  if (t.dataset.got && editCats) return; // while editing categories, a tap does not tick the item
   if (t.dataset.got) { t.closest('.bi').classList.add('got'); buyAct('setBuyStatus', 'Got it.', t.dataset.got, 'Got'); }
   else if (t.dataset.back) buyAct('setBuyStatus', 'Back on the list.', t.dataset.back, 'Need');
   else if (t.dataset.again) buyAct('setBuyStatus', 'Added again.', t.dataset.again, 'Need');
@@ -525,10 +556,10 @@ async function addBuyNow() {
   if (!item) { toast('Type or say an item first.', true); return; }
   $('#bAdd').disabled = true;
   try {
-    const r = await run('addBuy', item, $('#bQty').value.trim(), $('#bStore').value, $('#bUsual').checked);
-    $('#bItem').value = ''; $('#bQty').value = ''; $('#bUsual').checked = false;
+    const r = await run('addBuy', item, $('#bQty').value.trim(), $('#bStore').value, $('#bUsual').checked, $('#bCat').value);
+    $('#bItem').value = ''; $('#bQty').value = ''; $('#bUsual').checked = false; $('#bCat').value = '';
     await refreshBuy();
-    toast(r.reused ? r.item + ' was already listed. Set to Need.' : 'Added ' + r.item + (r.store ? ' · ' + r.store : ''));
+    toast((r.reused ? r.item + ' was already listed. Set to Need' : 'Added ' + r.item) + ' · ' + r.category + (r.store ? ' · ' + r.store : ''));
   } catch (e) { toast('Not saved: ' + e.message, true); }
   finally { $('#bAdd').disabled = false; $('#bItem').focus(); }
 }

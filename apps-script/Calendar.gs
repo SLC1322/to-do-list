@@ -64,7 +64,7 @@ function scheduleTrip(store, when, minutes) {
   var start = parseWhen_(when), mins = checkMinutes_(minutes);
   var end = new Date(start.getTime() + mins * 60000);
   var st = String(store || '').trim();
-  var buy = readTab_(BUY_TAB, BUY_HEADERS).rows.filter(function (b) { return b.status === 'Need'; });
+  var buy = readBuy_().rows.filter(function (b) { return b.status === 'Need'; });
   var line = function (b) { return '- ' + b.item + (b.qty ? ' (' + b.qty + ')' : ''); };
   var here = buy.filter(function (b) { return b.store === st; }).map(line);
   var any = st ? buy.filter(function (b) { return !b.store; }).map(line) : [];
