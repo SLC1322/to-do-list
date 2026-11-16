@@ -32,4 +32,13 @@ The job had been paused since 2026-11-06, because the app now adds tasks and sho
 | Log reset | Kept: runs whenever the email was sent. |
 | Tabs it may write | Items (archive deletions only), Archive, Run log. Never Buy or Wishlist. |
 
-The "Check nightly Daily Notes run" job is still paused. Its checks were written for the old job, so update it before turning it back on.
+The "Check nightly Daily Notes run" job (12:15 AM, read-only) was rewritten the same day for the notes-only job and turned back on. It checks:
+
+1. The Run log row for last night says "notes only" with an archived count. New, merged, buy or want counts would mean the old job ran.
+2. No Done task in Items is 8 or more days old, no ID appears twice in Items or Archive, and the Stale column still works.
+3. The job did not add tasks or "From voice" buy items.
+4. The Daily Notes email went to both addresses with no failure line.
+5. The log was cleared.
+6. The nightly job and the 8 PM swipe reminder both succeeded.
+
+It reports to your phone and names open High or Stale tasks.
